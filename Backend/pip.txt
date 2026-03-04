@@ -1,0 +1,18 @@
+pip install fastapi uvicorn sqlalchemy alembic psycopg2-binary python-dotenv
+
+----------------------------------------------------------
+fastapi → framework pra criar API
+
+uvicorn → servidor que roda a API
+
+sqlalchemy → ORM (Python ↔ banco de dados)
+
+alembic → migrations / versionamento do banco
+
+psycopg2-binary → driver do PostgreSQL
+
+python-dotenv → carrega variáveis do .env
+
+----------------------------------------------------------
+
+FastAPI cria a API, Uvicorn roda, SQLAlchemy acessa o banco, Alembic versiona, psycopg2 conecta no Postgres, dotenv gerencia config.

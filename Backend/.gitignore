@@ -1,0 +1,46 @@
+# ==========================================
+# IGNORAR ARQUIVOS SENSÍVEIS E DE AMBIENTE
+# ==========================================
+# Variáveis de ambiente (NUNCA subir senhas e credenciais para o GitHub)
+.env
+
+# ==========================================
+# IGNORAR PASTAS LOCAIS DO PYTHON
+# ==========================================
+# Ambientes virtuais (O GitHub não precisa dos pacotes, apenas do requirements.txt)
+.venv/
+venv/
+env/
+
+# Arquivos de cache e compilação do Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+dist/
+*.egg-info/
+.installed.cfg
+*.egg
+
+# ==========================================
+# IGNORAR ARQUIVOS DE IDES E SISTEMA OPERACIONAL
+# ==========================================
+# Configurações locais do VS Code e outras IDEs
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Arquivos temporários do Windows e Mac
+Thumbs.db
+.DS_Store
+
+# ==========================================
+# IGNORAR LOGS E TESTES (Para o Módulo 3)
+# ==========================================
+*.log
+.pytest_cache/
+.coverage
+htmlcov/
