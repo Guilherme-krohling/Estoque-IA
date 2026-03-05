@@ -2,8 +2,10 @@ pip install fastapi uvicorn sqlalchemy alembic psycopg2-binary python-dotenv
 
 ----------------------------------------------------------
 fastapi → framework pra criar API
+É o arquiteto. Ele desenha as rotas e dita as regras.
 
 uvicorn → servidor que roda a API
+É o motor. É o servidor real que fica escutando a porta do seu computador aguardando alguém acessar.
 
 sqlalchemy → ORM (Python ↔ banco de dados)
 

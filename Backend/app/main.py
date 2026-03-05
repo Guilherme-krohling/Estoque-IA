@@ -1,16 +1,12 @@
 from fastapi import FastAPI, APIRouter
 
-app = FastAPI()
+app = FastAPI(
+    title="StockIA - Gestão de Laboratorio",
+    description="API para controle de estoque de laboratório",
+    version="1.0.0"
+)
 
-#testando outra forma de fazer rotas
-router = APIRouter()
-
-# @app.get("/")
-# def read_root():
-#     return {"Hello": "Word"}
-
+# Nossa primeira rota (O endpoint raiz)
 @app.router.get('/')
-def first():
-    return 'Hello world!'
-
-app.include_router(prefix='first')
+def rota_raiz():
+    return {"mensagem": "API do StockAI está online e operante!"}
