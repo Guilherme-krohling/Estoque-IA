@@ -1,6 +1,5 @@
 pip install fastapi uvicorn sqlalchemy alembic psycopg2-binary python-dotenv
 
-----------------------------------------------------------
 fastapi → framework pra criar API
 É o arquiteto. Ele desenha as rotas e dita as regras.
 
@@ -15,6 +14,13 @@ psycopg2-binary → driver do PostgreSQL
 
 python-dotenv → carrega variáveis do .env
 
-----------------------------------------------------------
-
 FastAPI cria a API, Uvicorn roda, SQLAlchemy acessa o banco, Alembic versiona, psycopg2 conecta no Postgres, dotenv gerencia config.
+----------------------------------------------------------
+uvicorn app.main:app --reload OU uvicorn app.main:app --port 8080 --reload
+roda o projeto (main.py)
+
+docker compose up -d
+roda o docker com Postgres
+
+docker compose down -v
+para o docker

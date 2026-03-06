@@ -23,3 +23,15 @@ SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 
 # Cria a classe base. Todos os modelos ORM (tabelas) vão herdar dela para serem mapeados pelo SQLAlchemy
 Base = declarative_base()
+
+# FUNÇÃO NOVA:
+def get_db():
+    # Abre uma nova "janela" de conversa com o banco de dados
+    db = SessionLocal()
+    try:
+        # "Pausa" a função e empresta essa conexão para a rota que pediu
+        yield db
+    finally:
+        # Quando a rota termina o que tinha que fazer, essa linha roda obrigatoriamente
+        # Fechando a conexão para não travar o servidor por excesso de tráfego.
+        db.close()

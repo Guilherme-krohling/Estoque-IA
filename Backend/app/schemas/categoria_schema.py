@@ -2,12 +2,14 @@ from pydantic import BaseModel, ConfigDict
 from typing import Optional
 
 #campos que sempre existem
+#CLASSE MAE
 class CategoriaPadrao(BaseModel):
     nome: str
     descricao: Optional[str] = None
     
 
 # Essa é a classe que o usuário vai usar para criar uma categoria nova
+#Ta PASS por que vai herdar tudo da classe mae, se fosse necessario mais coisa entao colocaria aqui.
 class CriarCategoria(CategoriaPadrao):
     pass
 
