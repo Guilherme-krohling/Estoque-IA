@@ -1,4 +1,5 @@
 from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
 # Importamos o arquivo de rotas que acabamos de criar
 from app.api.endpoints import categorias, materiais, lotes, movimentacoes
 
@@ -6,6 +7,14 @@ app = FastAPI(
     title="StockIA - Gestão de Laboratorio",
     description="API para controle de estoque de laboratório",
     version="1.0.0"
+)
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],  # Permite que qualquer origem acesse (ideal para desenvolvimento local)
+    allow_credentials=True,
+    allow_methods=["*"],  # Permite todos os métodos (GET, POST, PUT, DELETE, etc.)
+    allow_headers=["*"],  # Permite todos os cabecalhos
 )
 
 # Conectamos as rotas de categorias no servidor. 

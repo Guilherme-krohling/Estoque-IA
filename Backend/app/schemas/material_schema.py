@@ -4,6 +4,9 @@ from typing import Optional
 class MaterialPadrao(BaseModel):
     nome: str
     quantidade_estoque: int=0
+    estoque_minimo: int=0
+    localizacao: Optional[str] = None
+    observacoes: Optional[str] = None
     categoria_id: int
     
 

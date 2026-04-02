@@ -18,6 +18,9 @@ class Material(Base):
     id = Column(Integer, primary_key=True, index=True)
     nome = Column(String, nullable=False, unique=True)
     quantidade_estoque= Column(Integer,  nullable= False, default=0)
+    estoque_minimo = Column(Integer, nullable=False, default=0)
+    localizacao = Column(String, nullable=True)
+    observacoes = Column(String, nullable=True)
     categoria_id= Column(Integer, ForeignKey('categorias.id')) #pega o tablename e a coluna que quero, no caso id
     categoria= relationship('Categoria', back_populates='materiais') #se relaciona com a outra classe, e com a variavel materiais que tem relationship
     lotes= relationship('Lote', back_populates='material')

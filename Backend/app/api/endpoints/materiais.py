@@ -11,7 +11,14 @@ router = APIRouter()
 #Create
 @router.post("/", response_model=MaterialRetorno)
 def criar_material(material: CriarMaterial, db: Session= Depends(get_db)):
-    novo_material= Material (nome= material.nome, quantidade_estoque=material.quantidade_estoque, categoria_id=material.categoria_id)
+    novo_material= Material (
+        nome= material.nome, 
+        quantidade_estoque=material.quantidade_estoque, 
+        estoque_minimo=material.estoque_minimo,
+        localizacao=material.localizacao,
+        observacoes=material.observacoes,
+        categoria_id=material.categoria_id
+    )
 
     db.add(novo_material)
     db.commit()
@@ -47,6 +54,9 @@ def atualizar_material(material_id: int, material_atualizado: CriarMaterial, db:
     #substitui os valores. ATUALIZA DE FATO
     material_banco.nome = material_atualizado.nome
     material_banco.quantidade_estoque= material_atualizado.quantidade_estoque
+    material_banco.estoque_minimo= material_atualizado.estoque_minimo
+    material_banco.localizacao= material_atualizado.localizacao
+    material_banco.observacoes= material_atualizado.observacoes
     material_banco.categoria_id=material_atualizado.categoria_id
 
     #confirma

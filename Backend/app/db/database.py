@@ -15,8 +15,11 @@ if not db_url:
 else:
     print("Sucesso: Conexão com o Banco de Dados configurada.")
 
-# Cria o motor que gerencia a comunicação e o pool de conexões com o PostgreSQL
-engine = create_engine(db_url)
+# Cria o motor que gerencia a comunicação e o pool de conexões com o PostgreSQL / SQLite
+if db_url.startswith("sqlite"):
+    engine = create_engine(db_url, connect_args={"check_same_thread": False})
+else:
+    engine = create_engine(db_url)
 
 # Cria a fábrica de sessões para as transações no banco (operações de leitura/escrita)
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)

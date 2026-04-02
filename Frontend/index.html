@@ -1,0 +1,139 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Inventário Medicinal</title>
+  <link rel="stylesheet" href="css/styles.css" />
+</head>
+<body>
+  <div class="container">
+    <header>
+      <div class="brand">
+        <h1>Inventário Medicinal</h1>
+        <p>
+          Controle de estoque para medicamentos e insumos críticos, com alertas de nível mínimo,
+          validade e base pronta para futura integração com IA de previsão de demanda.
+        </p>
+      </div>
+      <div class="badge">MVP em HTML, CSS e JavaScript</div>
+    </header>
+
+    <section class="stats" id="stats"></section>
+
+    <div class="grid">
+      <aside class="card">
+        <div class="card-header">
+          <h2>Cadastrar / Editar Item</h2>
+        </div>
+        <div class="card-body">
+          <form id="itemForm">
+            <input type="hidden" id="itemId" />
+            <input type="hidden" id="loteId" />
+
+            <div class="field">
+              <label for="nome">Nome do medicamento</label>
+              <input id="nome" type="text" placeholder="Ex: Dipirona 500mg" required />
+            </div>
+
+            <div class="field">
+              <label for="categoria">Categoria</label>
+              <select id="categoria" required>
+                <option value="">Selecione dropdown options via API...</option>
+              </select>
+            </div>
+
+            <div class="field">
+              <label for="quantidade">Quantidade em estoque</label>
+              <input id="quantidade" type="number" min="0" placeholder="0" required />
+            </div>
+
+            <div class="field">
+              <label for="minimo">Estoque mínimo</label>
+              <input id="minimo" type="number" min="0" placeholder="10" required />
+            </div>
+
+            <div class="field">
+              <label for="validade">Validade</label>
+              <input id="validade" type="date" required />
+            </div>
+
+            <div class="field">
+              <label for="localizacao">Localização</label>
+              <input id="localizacao" type="text" placeholder="Ex: Almoxarifado A / Prateleira 3" />
+            </div>
+
+            <div class="field">
+              <label for="observacoes">Observações</label>
+              <textarea id="observacoes" rows="3" placeholder="Lote, fornecedor, uso crítico, etc."></textarea>
+            </div>
+
+            <div class="actions">
+              <button class="btn-primary" type="submit">Salvar item</button>
+              <button class="btn-secondary" type="button" id="clearForm">Limpar</button>
+            </div>
+          </form>
+
+          <div class="forecast-box">
+            <h3>Módulo de IA (próxima fase)</h3>
+            <p class="section-text">
+              Nesta área, você poderá conectar um modelo de previsão para estimar consumo futuro,
+              identificar aumento de demanda e gerar alertas preventivos em cenários de surto ou epidemia.
+            </p>
+          </div>
+        </div>
+      </aside>
+
+      <main class="card">
+        <div class="card-header">
+          <h2>Itens em Estoque</h2>
+          <span class="hint">Os dados agora vêm diretamente do Backend PostgreSQL (FastAPI).</span>
+        </div>
+        <div class="card-body">
+          <div class="toolbar">
+            <div class="left">
+              <input id="searchInput" type="text" placeholder="Buscar por nome, categoria ou localização" />
+              <select id="statusFilter">
+                <option value="todos">Todos os status</option>
+                <option value="ok">Estoque normal</option>
+                <option value="baixo">Estoque baixo</option>
+                <option value="critico">Crítico</option>
+              </select>
+            </div>
+            <div class="right">
+              <button class="btn-secondary" id="seedDemo">Inserir dados de exemplo (Categorias Mocks)</button>
+              <button class="btn-primary" id="btnRefresh">Atualizar Lista</button>
+            </div>
+          </div>
+
+          <div class="table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>Medicamento</th>
+                  <th>Categoria</th>
+                  <th>Quantidade</th>
+                  <th>Mínimo</th>
+                  <th>Status</th>
+                  <th>Validade</th>
+                  <th>Localização</th>
+                  <th>Ações</th>
+                </tr>
+              </thead>
+              <tbody id="inventoryTableBody"></tbody>
+            </table>
+          </div>
+          <div class="empty" id="emptyState" style="display:none;">Nenhum item encontrado no banco.</div>
+        </div>
+      </main>
+    </div>
+  </div>
+
+  <div id="toast-container"></div>
+
+  <!-- Scripts -->
+  <script src="js/api.js"></script>
+  <script src="js/ui.js"></script>
+  <script src="js/app.js"></script>
+</body>
+</html>
