@@ -1,8 +1,8 @@
-version: '3.1'
+version: '3.8'
 
 services:
     postgresql:
-        image: postgres
+        image: postgres:16-alpine
         restart: always
         ports:
             - 5433:5432
@@ -10,8 +10,13 @@ services:
             POSTGRES_PASSWORD: ${PG_PASS}
             POSTGRES_USER: ${PG_USER}
             POSTGRES_DB: ${PG_DB}
-        # volumes:
-        #     - /var/cache/pgdata:/var/lib/postgresql/data
+        volumes:
+            - pgdata:/var/lib/postgresql/data
+        healthcheck:
+            test: ["CMD-SHELL", "pg_isready -U ${PG_USER} -d ${PG_DB}"]
+            interval: 10s
+            timeout: 5s
+            retries: 5
 
     pgadmin:
         image: dpage/pgadmin4
@@ -22,3 +27,6 @@ services:
             - 5050:80
         depends_on:
             - postgresql
+
+volumes:
+    pgdata:
