@@ -1,20 +1,22 @@
-from pydantic import BaseModel, ConfigDict
-from typing import Optional
+from pydantic import BaseModel, ConfigDict, EmailStr, Field
+from typing import Literal
 from datetime import datetime
+
+Perfil = Literal["ADMIN", "GESTOR", "PESQUISADOR"]
 
 
 class UsuarioPadrao(BaseModel):
-    nome: str
-    email: str
-    perfil: str = "PESQUISADOR"
+    nome: str = Field(min_length=2, max_length=100)
+    email: EmailStr
+    perfil: Perfil = "PESQUISADOR"
 
 
 class CriarUsuario(UsuarioPadrao):
-    senha: str  # Texto puro que será hasheado no backend
+    senha: str = Field(min_length=8, max_length=128)  # Texto puro, hasheado no backend
 
 
 class LoginUsuario(BaseModel):
-    email: str
+    email: EmailStr
     senha: str
 
 

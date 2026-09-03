@@ -83,6 +83,24 @@ class Categoria(Base):
 
 
 # =====================================================================
+# 3b. LOCAIS DE ARMAZENAMENTO (depósitos, geladeiras, freezers)
+# =====================================================================
+class LocalArmazenamento(Base):
+    __tablename__ = "locais_armazenamento"
+
+    id = Column(Integer, primary_key=True, index=True)
+    nome = Column(String(100), nullable=False)  # 'Geladeira 2 - Sala B'
+    tipo = Column(String(50), nullable=False)  # REFRIGERADO | CONGELADO | AMBIENTE | INFLAMAVEIS
+    temperatura_atual = Column(Numeric(5, 2), nullable=True)  # leitura de sensor (futuro)
+    descricao = Column(Text, nullable=True)
+    ativo = Column(Boolean, default=True)
+    criado_em = Column(DateTime, default=func.now())
+
+    # Relacionamentos
+    lotes = relationship("Lote", back_populates="local")
+
+
+# =====================================================================
 # 4. MATERIAIS (O Catálogo)
 # =====================================================================
 class Material(Base):
@@ -99,6 +117,10 @@ class Material(Base):
     exige_refrigeracao = Column(Boolean, default=False)
     temperatura_min = Column(Numeric(5, 2), nullable=True)  # Ex: 2.50
     temperatura_max = Column(Numeric(5, 2), nullable=True)  # Ex: 8.00
+    unidade_medida = Column(String(20), nullable=False, default="un")  # unidade canônica: ml, un, g
+    fator_conversao = Column(Numeric(10, 4), default=1.0)  # ex: 1 caixa = 50 un → 50
+    estoque_minimo = Column(Numeric(10, 2), default=0)  # gatilho de alerta de ressuprimento
+    estoque_maximo = Column(Numeric(10, 2), nullable=True)  # teto opcional
     ativo = Column(Boolean, default=True)
     criado_em = Column(DateTime, default=func.now())
 
@@ -117,6 +139,7 @@ class Lote(Base):
 
     id = Column(Integer, primary_key=True, index=True)
     material_id = Column(Integer, ForeignKey("materiais.id"), nullable=False)
+    local_id = Column(Integer, ForeignKey("locais_armazenamento.id"), nullable=True)
     numero_lote = Column(String(50), nullable=False)
     data_fabricacao = Column(Date, nullable=True)
     data_validade = Column(Date, nullable=False)
@@ -127,6 +150,7 @@ class Lote(Base):
 
     # Relacionamentos
     material = relationship("Material", back_populates="lotes")
+    local = relationship("LocalArmazenamento", back_populates="lotes")
     fornecedor = relationship("Fornecedor", back_populates="lotes")
     movimentacoes = relationship("MovimentacaoEstoque", back_populates="lote", cascade="all, delete-orphan")
 
@@ -140,9 +164,12 @@ class MovimentacaoEstoque(Base):
     id = Column(Integer, primary_key=True, index=True)
     lote_id = Column(Integer, ForeignKey("lotes.id"), nullable=False)
     usuario_id = Column(Integer, ForeignKey("usuarios.id"), nullable=False)
-    tipo = Column(String(20), nullable=False)  # ENTRADA | USO | DESCARTE | AJUSTE
+    tipo = Column(String(20), nullable=False)  # ENTRADA | USO | DESCARTE | AJUSTE | TRANSFERENCIA
     quantidade = Column(Numeric(10, 2), nullable=False)
     unidade_medida = Column(String(20), nullable=True)  # un, ml, caixa
+    local_origem_id = Column(Integer, ForeignKey("locais_armazenamento.id"), nullable=True)
+    local_destino_id = Column(Integer, ForeignKey("locais_armazenamento.id"), nullable=True)
+    estorno_de_id = Column(Integer, ForeignKey("movimentacoes_estoque.id"), nullable=True)
     motivo = Column(String(255), nullable=True)
     referencia = Column(String(100), nullable=True)  # NF ou Pedido
     criado_em = Column(DateTime, default=func.now())
@@ -150,6 +177,9 @@ class MovimentacaoEstoque(Base):
     # Relacionamentos
     lote = relationship("Lote", back_populates="movimentacoes")
     usuario = relationship("Usuario", back_populates="movimentacoes")
+    local_origem = relationship("LocalArmazenamento", foreign_keys=[local_origem_id])
+    local_destino = relationship("LocalArmazenamento", foreign_keys=[local_destino_id])
+    estorno_de = relationship("MovimentacaoEstoque", remote_side=[id])
 
 
 # =====================================================================

@@ -5,7 +5,7 @@ CRUD de doenças com gerenciamento da relação Many-to-Many com materiais.
 """
 
 from fastapi import APIRouter, Depends, HTTPException
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, joinedload
 from typing import List
 
 from app.db.database import get_db
@@ -45,7 +45,7 @@ def criar_doenca(
 
 @router.get("/", response_model=List[DoencaRetorno])
 def listar_doencas(db: Session = Depends(get_db), _user: Usuario = Depends(get_current_user)):
-    return db.query(Doenca).filter(Doenca.ativo == True).all()
+    return db.query(Doenca).options(joinedload(Doenca.materiais)).filter(Doenca.ativo == True).all()
 
 
 @router.get("/{doenca_id}", response_model=DoencaRetorno)
@@ -54,7 +54,7 @@ def buscar_doenca(
     db: Session = Depends(get_db),
     _user: Usuario = Depends(get_current_user),
 ):
-    doenca = db.query(Doenca).filter(Doenca.id == doenca_id).first()
+    doenca = db.query(Doenca).options(joinedload(Doenca.materiais)).filter(Doenca.id == doenca_id).first()
     if not doenca:
         raise HTTPException(status_code=404, detail="Doença não encontrada.")
     return doenca

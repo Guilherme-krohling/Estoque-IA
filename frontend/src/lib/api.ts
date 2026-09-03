@@ -37,10 +37,17 @@ async function fetchApi<T>(
     headers["Authorization"] = `Bearer ${token}`;
   }
 
-  const response = await fetch(`${API_URL}${endpoint}`, {
-    ...options,
-    headers,
-  });
+  let response: Response;
+  try {
+    response = await fetch(`${API_URL}${endpoint}`, {
+      ...options,
+      headers,
+    });
+  } catch (err: any) {
+    throw new Error(
+      "Servidor (Backend) offline ou inacessível. Certifique-se de que o Uvicorn está rodando em http://localhost:8000."
+    );
+  }
 
   if (!response.ok) {
     let errorMsg = `Erro ${response.status}`;
@@ -125,12 +132,32 @@ export const lotesApi = {
 // MOVIMENTAÇÕES
 // =====================================================================
 export const movimentacoesApi = {
-  listar: () => fetchApi<any[]>("/movimentacoes/"),
+  listar: (params?: { tipo?: string; lote_id?: number; usuario_id?: number; material_id?: number }) => {
+    const qs = new URLSearchParams();
+    if (params?.tipo) qs.set("tipo", params.tipo);
+    if (params?.lote_id) qs.set("lote_id", String(params.lote_id));
+    if (params?.usuario_id) qs.set("usuario_id", String(params.usuario_id));
+    if (params?.material_id) qs.set("material_id", String(params.material_id));
+    const q = qs.toString();
+    return fetchApi<any[]>(`/movimentacoes/${q ? `?${q}` : ""}`);
+  },
   buscar: (id: number) => fetchApi<any>(`/movimentacoes/${id}`),
   porLote: (loteId: number) =>
     fetchApi<any[]>(`/movimentacoes/lote/${loteId}`),
   criar: (data: any) =>
     fetchApi("/movimentacoes/", { method: "POST", body: JSON.stringify(data) }),
+  estornar: (id: number) =>
+    fetchApi(`/movimentacoes/${id}/estornar`, { method: "POST" }),
+};
+
+// =====================================================================
+// RELATÓRIOS
+// =====================================================================
+export const relatoriosApi = {
+  estoqueCritico: () => fetchApi<any[]>("/relatorios/estoque-critico"),
+  reposicao: () => fetchApi<any>("/relatorios/reposicao"),
+  lotesVencendo: (dias = 60) => fetchApi<any[]>(`/relatorios/lotes-vencendo?dias=${dias}`),
+  lotesVencidos: () => fetchApi<any[]>("/relatorios/lotes-vencidos"),
 };
 
 // =====================================================================
@@ -148,6 +175,20 @@ export const fornecedoresApi = {
     }),
   deletar: (id: number) =>
     fetchApi(`/fornecedores/${id}`, { method: "DELETE" }),
+};
+
+// =====================================================================
+// LOCAIS DE ARMAZENAMENTO
+// =====================================================================
+export const locaisApi = {
+  listar: () => fetchApi<any[]>("/locais/"),
+  buscar: (id: number) => fetchApi<any>(`/locais/${id}`),
+  criar: (data: any) =>
+    fetchApi("/locais/", { method: "POST", body: JSON.stringify(data) }),
+  atualizar: (id: number, data: any) =>
+    fetchApi(`/locais/${id}`, { method: "PUT", body: JSON.stringify(data) }),
+  deletar: (id: number) =>
+    fetchApi(`/locais/${id}`, { method: "DELETE" }),
 };
 
 // =====================================================================

@@ -1,4 +1,4 @@
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, ConfigDict, EmailStr
 from typing import Optional
 
 
@@ -6,7 +6,7 @@ class FornecedorPadrao(BaseModel):
     nome: str
     cnpj: Optional[str] = None
     contato: Optional[str] = None
-    email: Optional[str] = None
+    email: Optional[EmailStr] = None
 
 
 class CriarFornecedor(FornecedorPadrao):

@@ -15,6 +15,10 @@ class MaterialPadrao(BaseModel):
     exige_refrigeracao: bool = False
     temperatura_min: Optional[Decimal] = None
     temperatura_max: Optional[Decimal] = None
+    unidade_medida: str = "un"
+    fator_conversao: Optional[Decimal] = Decimal("1.0")
+    estoque_minimo: Decimal = Decimal("0")
+    estoque_maximo: Optional[Decimal] = None
 
 
 class CriarMaterial(MaterialPadrao):

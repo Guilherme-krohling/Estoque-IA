@@ -4,8 +4,10 @@ StockIA — API Principal
 FastAPI com todas as rotas, CORS e documentação Swagger.
 """
 
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse
+from sqlalchemy.exc import IntegrityError
 
 from app.api.endpoints import (
     auth,
@@ -16,6 +18,8 @@ from app.api.endpoints import (
     movimentacoes,
     fornecedores,
     doencas,
+    locais,
+    relatorios,
 )
 
 app = FastAPI(
@@ -30,8 +34,12 @@ app = FastAPI(
 app.add_middleware(
     CORSMiddleware,
     allow_origins=[
-        "http://localhost:3000",   # Next.js dev
+        "http://localhost:3000",
         "http://127.0.0.1:3000",
+        "http://localhost:8000",
+        "http://127.0.0.1:8000",
+        "http://localhost:3001",
+        "http://127.0.0.1:3001",
     ],
     allow_credentials=True,
     allow_methods=["*"],
@@ -49,6 +57,21 @@ app.include_router(lotes.router, prefix="/api/lotes", tags=["Lotes"])
 app.include_router(movimentacoes.router, prefix="/api/movimentacoes", tags=["Movimentações"])
 app.include_router(fornecedores.router, prefix="/api/fornecedores", tags=["Fornecedores"])
 app.include_router(doencas.router, prefix="/api/doencas", tags=["Doenças"])
+app.include_router(locais.router, prefix="/api/locais", tags=["Locais de Armazenamento"])
+app.include_router(relatorios.router, prefix="/api/relatorios", tags=["Relatórios"])
+
+
+# =====================================================================
+# TRATAMENTO GLOBAL DE ERROS DE INTEGRIDADE DO BANCO
+# =====================================================================
+@app.exception_handler(IntegrityError)
+def integrity_error_handler(request: Request, exc: IntegrityError):
+    """Converte violações de integridade (FK, UNIQUE, NOT NULL) em 409 amigável
+    em vez de vazar stacktrace 500."""
+    return JSONResponse(
+        status_code=409,
+        content={"detail": "Operação viola uma restrição do banco de dados (duplicidade ou referência inválida)."},
+    )
 
 
 @app.get("/", tags=["Status"])

@@ -85,9 +85,6 @@ export default function LoginPage() {
               {loading ? "Entrando..." : "Entrar"}
             </button>
           </form>
-          <p className="text-center text-xs text-slate-500 mt-6">
-            Admin padrão: admin@stockia.com / admin123
-          </p>
         </div>
       </div>
     </div>

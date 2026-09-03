@@ -10,16 +10,20 @@ from sqlalchemy.orm import Session
 from app.db.database import get_db
 from app.models.models import Usuario
 from app.schemas.usuario_schema import CriarUsuario, UsuarioRetorno, LoginUsuario, TokenRetorno
-from app.core.security import hash_senha, verificar_senha, criar_token_acesso
+from app.core.security import hash_senha, verificar_senha, criar_token_acesso, require_admin
 
 router = APIRouter()
 
 
 # =====================================================================
-# REGISTRO — Cria um novo usuário
+# REGISTRO — Cria um novo usuário (somente ADMIN)
 # =====================================================================
 @router.post("/registrar", response_model=UsuarioRetorno, status_code=status.HTTP_201_CREATED)
-def registrar_usuario(usuario: CriarUsuario, db: Session = Depends(get_db)):
+def registrar_usuario(
+    usuario: CriarUsuario,
+    db: Session = Depends(get_db),
+    _admin: Usuario = Depends(require_admin),
+):
     # Verifica se email já existe
     existente = db.query(Usuario).filter(Usuario.email == usuario.email).first()
     if existente:

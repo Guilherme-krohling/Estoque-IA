@@ -9,7 +9,7 @@ from sqlalchemy.orm import Session
 from typing import List
 
 from app.db.database import get_db
-from app.models.models import Lote, Material, Usuario
+from app.models.models import Lote, Material, MovimentacaoEstoque, Usuario
 from app.schemas.lote_schema import CriarLote, AtualizarLote, LoteRetorno
 from app.core.security import get_current_user
 
@@ -20,15 +20,33 @@ router = APIRouter()
 def criar_lote(
     lote: CriarLote,
     db: Session = Depends(get_db),
-    _user: Usuario = Depends(get_current_user),
+    current_user: Usuario = Depends(get_current_user),
 ):
     # Verifica se o material existe
     material = db.query(Material).filter(Material.id == lote.material_id).first()
     if not material:
         raise HTTPException(status_code=404, detail="Material não encontrado.")
 
-    novo_lote = Lote(**lote.model_dump())
+    dados = lote.model_dump()
+    quantidade_inicial = dados.pop("quantidade_inicial", 0) or 0
+
+    # Lote nasce com saldo 0; o saldo de abertura entra via movimentação (rastreabilidade).
+    novo_lote = Lote(**dados, quantidade_atual=0)
     db.add(novo_lote)
+    db.flush()  # garante novo_lote.id sem encerrar a transação
+
+    if quantidade_inicial > 0:
+        novo_lote.quantidade_atual = quantidade_inicial
+        db.add(
+            MovimentacaoEstoque(
+                lote_id=novo_lote.id,
+                usuario_id=current_user.id,
+                tipo="ENTRADA",
+                quantidade=quantidade_inicial,
+                motivo="Saldo de abertura do lote",
+            )
+        )
+
     db.commit()
     db.refresh(novo_lote)
     return novo_lote

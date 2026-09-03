@@ -7,12 +7,12 @@ import { useState } from "react";
 
 const navItems = [
   { href: "/dashboard", label: "Dashboard", icon: "📊" },
-  { href: "/dashboard/materiais", label: "Materiais", icon: "🧪" },
-  { href: "/dashboard/lotes", label: "Lotes", icon: "📦" },
-  { href: "/dashboard/categorias", label: "Categorias", icon: "🏷️" },
-  { href: "/dashboard/movimentacoes", label: "Movimentações", icon: "🔄" },
-  { href: "/dashboard/fornecedores", label: "Fornecedores", icon: "🏭" },
-  { href: "/dashboard/doencas", label: "Doenças", icon: "🦠" },
+  { href: "/dashboard/estoque", label: "Estoque", icon: "📦" },
+  { href: "/dashboard/reposicao", label: "Reposição", icon: "📋" },
+  { href: "/dashboard/alertas", label: "Alertas", icon: "⚠️" },
+  { href: "/dashboard/assistente-ia", label: "Assistente IA", icon: "🤖" },
+  { href: "/dashboard/auditoria", label: "Auditoria", icon: "📜" },
+  { href: "/dashboard/configuracoes", label: "Configurações", icon: "⚙️", adminOnly: true },
 ];
 
 export default function Sidebar() {
@@ -28,7 +28,7 @@ export default function Sidebar() {
     >
       {/* Header */}
       <div className="flex items-center gap-3 px-4 py-5 border-b border-slate-700/50">
-        <div className="w-9 h-9 rounded-lg bg-gradient-to-br from-emerald-400 to-cyan-500 flex items-center justify-center text-white font-bold text-sm shrink-0">
+        <div className="w-9 h-9 rounded-lg bg-gradient-to-br from-emerald-400 to-cyan-500 flex items-center justify-center text-white font-bold text-sm shrink-0 shadow-md">
           S
         </div>
         {!collapsed && (
@@ -44,6 +44,8 @@ export default function Sidebar() {
       {/* Nav */}
       <nav className="flex-1 py-4 px-2 space-y-1 overflow-y-auto">
         {navItems.map((item) => {
+          if (item.adminOnly && user?.perfil !== "ADMIN") return null;
+
           const isActive =
             pathname === item.href ||
             (item.href !== "/dashboard" && pathname.startsWith(item.href));

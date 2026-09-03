@@ -3,6 +3,14 @@ from typing import Optional, List
 from datetime import datetime
 
 
+# Schema simplificado de Material para evitar referência circular
+class MaterialResumo(BaseModel):
+    id: int
+    nome: str
+    fabricante: Optional[str] = None
+    model_config = ConfigDict(from_attributes=True)
+
+
 class DoencaPadrao(BaseModel):
     nome: str
     descricao: Optional[str] = None
@@ -21,4 +29,5 @@ class DoencaRetorno(DoencaPadrao):
     id: int
     ativo: bool
     criado_em: datetime
+    materiais: List[MaterialResumo] = []
     model_config = ConfigDict(from_attributes=True)
