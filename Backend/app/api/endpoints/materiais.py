@@ -4,11 +4,12 @@ StockIA — Endpoint Materiais
 CRUD completo do catálogo de materiais protegido por JWT.
 """
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Request
 from sqlalchemy.orm import Session
 from typing import List
 
 from app.db.database import get_db
+from app.core.limiter import limiter
 from app.models.models import Material, Categoria, Fornecedor, Usuario
 from app.schemas.material_schema import CriarMaterial, AtualizarMaterial, MaterialRetorno
 from app.core.security import get_current_user
@@ -25,7 +26,9 @@ def validar_fks(db: Session, categoria_id, fornecedor_id):
 
 
 @router.post("/", response_model=MaterialRetorno, status_code=201)
+@limiter.limit("30/minute")
 def criar_material(
+    request: Request,
     material: CriarMaterial,
     db: Session = Depends(get_db),
     _user: Usuario = Depends(get_current_user),

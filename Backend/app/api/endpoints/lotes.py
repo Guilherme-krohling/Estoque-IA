@@ -4,11 +4,12 @@ StockIA — Endpoint Lotes
 CRUD de lotes com controle FEFO (First Expired, First Out).
 """
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Request
 from sqlalchemy.orm import Session
 from typing import List
 
 from app.db.database import get_db
+from app.core.limiter import limiter
 from app.models.models import Lote, Material, MovimentacaoEstoque, Usuario
 from app.schemas.lote_schema import CriarLote, AtualizarLote, LoteRetorno
 from app.core.security import get_current_user
@@ -17,7 +18,9 @@ router = APIRouter()
 
 
 @router.post("/", response_model=LoteRetorno, status_code=201)
+@limiter.limit("30/minute")
 def criar_lote(
+    request: Request,
     lote: CriarLote,
     db: Session = Depends(get_db),
     current_user: Usuario = Depends(get_current_user),

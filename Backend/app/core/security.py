@@ -32,8 +32,12 @@ if not SECRET_KEY:
 ALGORITHM = os.getenv("ALGORITHM", "HS256")
 ACCESS_TOKEN_EXPIRE_MINUTES = int(os.getenv("ACCESS_TOKEN_EXPIRE_MINUTES", "480"))
 
-# Contexto de hash bcrypt
-pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
+# Contexto de hash bcrypt — rounds=13 dobra o tempo vs. padrão 12 (mais resistente a brute-force)
+pwd_context = CryptContext(
+    schemes=["bcrypt"],
+    deprecated="auto",
+    bcrypt__rounds=13,
+)
 
 # Esquema OAuth2 — extrai o token do header Authorization: Bearer <token>
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/api/auth/login")
@@ -105,5 +109,15 @@ def require_admin(current_user: Usuario = Depends(get_current_user)) -> Usuario:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Acesso restrito a administradores.",
+        )
+    return current_user
+
+
+def require_biomedico(current_user: Usuario = Depends(get_current_user)) -> Usuario:
+    """Dependency que restringe ações críticas de estoque a Biomédicos e Admins."""
+    if current_user.perfil not in ("ADMIN", "BIOMEDICO"):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Ação restrita a Biomédicos ou Administradores.",
         )
     return current_user

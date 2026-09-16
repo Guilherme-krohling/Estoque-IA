@@ -70,7 +70,7 @@ export default function DataTable<T extends { id: number }>({
       });
     }
 
-    // 2. Ordenação
+    // 2. Ordenação Natural (numérica + alfabética)
     if (sortColumn) {
       result.sort((a, b) => {
         const valA = (a as any)[sortColumn];
@@ -79,16 +79,18 @@ export default function DataTable<T extends { id: number }>({
         if (valA == null) return 1;
         if (valB == null) return -1;
 
+        // Valores já numéricos: comparação matemática direta
         if (typeof valA === "number" && typeof valB === "number") {
           return sortDirection === "asc" ? valA - valB : valB - valA;
         }
 
-        const strA = String(valA).toLowerCase();
-        const strB = String(valB).toLowerCase();
-
-        if (strA < strB) return sortDirection === "asc" ? -1 : 1;
-        if (strA > strB) return sortDirection === "asc" ? 1 : -1;
-        return 0;
+        // Strings: localeCompare com numeric:true garante ordem natural
+        // (1, 2, 9, 10, 20) em vez de lexicográfica (1, 10, 2, 20, 9)
+        const cmp = String(valA).localeCompare(String(valB), "pt-BR", {
+          numeric: true,
+          sensitivity: "base",
+        });
+        return sortDirection === "asc" ? cmp : -cmp;
       });
     }
 
@@ -106,7 +108,7 @@ export default function DataTable<T extends { id: number }>({
             type="text"
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
-            placeholder="🔍 Digite para buscar..."
+            placeholder="Digite para buscar..."
             className="w-full pl-9 pr-4 py-2 bg-slate-900 border border-slate-700 rounded-lg text-white text-sm focus:ring-2 focus:ring-emerald-500/50 focus:outline-none placeholder-slate-500"
           />
           <span className="absolute left-3 top-2.5 text-slate-500 text-xs">🔍</span>
@@ -204,9 +206,8 @@ export default function DataTable<T extends { id: number }>({
               {processedData.map((item, idx) => (
                 <tr
                   key={item.id}
-                  className={`border-b border-slate-700/30 transition-colors hover:bg-slate-800/40 ${
-                    idx % 2 === 0 ? "bg-slate-900/20" : ""
-                  }`}
+                  className={`border-b border-slate-700/30 transition-colors hover:bg-slate-800/40 ${idx % 2 === 0 ? "bg-slate-900/20" : ""
+                    }`}
                 >
                   {columns.map((col) => (
                     <td key={col.key} className="px-4 py-3 text-slate-200">

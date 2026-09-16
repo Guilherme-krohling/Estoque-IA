@@ -216,3 +216,35 @@ export const usuariosApi = {
   ativar: (id: number) =>
     fetchApi(`/usuarios/${id}/ativar`, { method: "PATCH" }),
 };
+
+// =====================================================================
+// IA — Motor de Estoque + Gemini + Prophet
+// =====================================================================
+export const iaApi = {
+  /** GET /api/ia/cobertura/{material_id} — cobertura de um material */
+  coberturaMaterial: (materialId: number) =>
+    fetchApi<any>(`/ia/cobertura/${materialId}`),
+
+  /** GET /api/ia/cobertura — cobertura de todos os materiais ativos */
+  coberturaGeral: (apenasCriticos = false) =>
+    fetchApi<any[]>(`/ia/cobertura?apenas_criticos=${apenasCriticos}`),
+
+  /** GET /api/ia/previsao — previsão Prophet de todos os materiais com dados */
+  previsaoGeral: () =>
+    fetchApi<any[]>("/ia/previsao"),
+
+  /** GET /api/ia/previsao/material/{id} — previsão Prophet de um material */
+  previsaoMaterial: (materialId: number, horizonteDias = 56) =>
+    fetchApi<any>(`/ia/previsao/material/${materialId}?horizonte_dias=${horizonteDias}`),
+
+  /** POST /api/ia/justificativa — justificativa tecnica via Gemini */
+  gerarJustificativa: (body: {
+    material_ids: number[];
+    doenca_nome?: string;
+    contexto_epidemiologico?: string;
+  }) =>
+    fetchApi<any>("/ia/justificativa", {
+      method: "POST",
+      body: JSON.stringify(body),
+    }),
+};

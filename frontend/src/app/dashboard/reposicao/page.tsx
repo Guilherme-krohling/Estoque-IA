@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState, useMemo } from "react";
-import { relatoriosApi } from "@/lib/api";
+import { relatoriosApi, iaApi } from "@/lib/api";
 import { showToast } from "@/components/Toast";
 
 export default function ReposicaoPage() {
@@ -101,16 +101,18 @@ export default function ReposicaoPage() {
         if (valA == null) return 1;
         if (valB == null) return -1;
 
+        // Valores já numéricos: comparação matemática direta
         if (typeof valA === "number" && typeof valB === "number") {
           return sortDirection === "asc" ? valA - valB : valB - valA;
         }
 
-        const strA = String(valA).toLowerCase();
-        const strB = String(valB).toLowerCase();
-
-        if (strA < strB) return sortDirection === "asc" ? -1 : 1;
-        if (strA > strB) return sortDirection === "asc" ? 1 : -1;
-        return 0;
+        // Strings: localeCompare com numeric:true garante ordem natural
+        // (1, 2, 9, 10, 20) em vez de lexicográfica (1, 10, 2, 20, 9)
+        const cmp = String(valA).localeCompare(String(valB), "pt-BR", {
+          numeric: true,
+          sensitivity: "base",
+        });
+        return sortDirection === "asc" ? cmp : -cmp;
       });
     }
 
@@ -124,31 +126,35 @@ export default function ReposicaoPage() {
   // Estados da IA de Compras
   const [showIAModal, setShowIAModal] = useState(false);
   const [generatingIA, setGeneratingIA] = useState(false);
+  const [textoGemini, setTextoGemini] = useState<string | null>(null);
+  const [erroGemini, setErroGemini] = useState<string | null>(null);
 
-  const handleOpenIAModal = () => {
+  const handleOpenIAModal = async () => {
     setShowIAModal(true);
     setGeneratingIA(true);
-    setTimeout(() => {
+    setTextoGemini(null);
+    setErroGemini(null);
+
+    try {
+      const ids = itensProcessados.map((i: any) => i.material_id).filter(Boolean).slice(0, 10);
+      const resultado = await iaApi.gerarJustificativa({
+        material_ids: ids,
+        doenca_nome: "Doenças sazonais (Influenza, Dengue, VSR)",
+        contexto_epidemiologico: "Período de maior circulação de patógenos respiratórios na região Sudeste.",
+      });
+      setTextoGemini(resultado.texto);
+    } catch (err: any) {
+      setErroGemini(err.message || "Erro ao consultar o Gemini.");
+    } finally {
       setGeneratingIA(false);
-    }, 700);
+    }
   };
 
   const handleCopyJustificativa = () => {
-    const texto = `JUSTIFICATIVA TÉCNICA DE COMPRAS — STOCKIA (IA BIOMÉDICA)
-Data do Pedido: ${new Date().toLocaleDateString("pt-BR")}
-Setor Solicitante: Laboratório de Análises Clínicas / Diagnóstico Molecular
-
-1. RESUMO DOS MATERIAIS CRÍTICOS:
-${itensProcessados.map(i => `- ${i.nome} (Cód: ${i.codigo_catalogo || "N/A"}): Saldo Atual = ${i.saldo_atual} ${i.unidade_medida || "un"} | Mínimo = ${i.estoque_minimo} | Quantidade Recomendada = +${i.sugestao_comprar} ${i.unidade_medida || "un"}`).join("\n")}
-
-2. MOTIVAÇÃO BIOMÉDICA E CLÍNICA:
-Os materiais indicados acima estão abaixo do limiar de segurança operacional ou totalmente zerados no estoque. Diante da sazonalidade epidemiológica atual de infecções respiratórias (Influenza A/B e VSR) na região, a interrupção no fornecimento destes reagentes provocará o represamento de exames diagnósticos vitais e descumprimento de prazos de laudo ANVISA.
-
-3. RECOMENDAÇÃO DE FORNECIMENTO:
-Solicita-se a aprovação emergencial de compra para regularizar o saldo até os níveis seguros de estoque máximo cadastrado.`;
-
-    navigator.clipboard.writeText(texto);
-    showToast("Justificativa técnica copiada para a área de transferência!", "success");
+    const conteudo = textoGemini ||
+      `JUSTIFICATIVA TÉCNICA DE COMPRAS \u2014 STOCKIA\nData: ${new Date().toLocaleDateString("pt-BR")}\n\n${itensProcessados.map(i => `- ${i.nome}: Saldo ${i.saldo_atual} | Mín: ${i.estoque_minimo} | Comprar +${i.sugestao_comprar}`).join("\n")}`;
+    navigator.clipboard.writeText(conteudo);
+    showToast("Justificativa copiada para a área de transferência!", "success");
   };
 
   return (
@@ -167,7 +173,8 @@ Solicita-se a aprovação emergencial de compra para regularizar o saldo até os
         <div className="flex flex-wrap items-center gap-3">
           <button
             onClick={handleOpenIAModal}
-            className="px-4 py-2.5 bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-400 hover:to-teal-500 text-white text-xs font-bold rounded-xl shadow-lg shadow-emerald-500/20 transition-all flex items-center gap-2"
+            disabled={generatingIA}
+            className="px-4 py-2.5 bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-400 hover:to-teal-500 disabled:opacity-50 disabled:cursor-not-allowed text-white text-xs font-bold rounded-xl shadow-lg shadow-emerald-500/20 transition-all flex items-center gap-2"
           >
             <span>🤖</span> Gerar Sugestão de Compras com IA
           </button>
@@ -246,7 +253,7 @@ Solicita-se a aprovação emergencial de compra para regularizar o saldo até os
               type="text"
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
-              placeholder="🔍 Digite para buscar na lista de reposição..."
+              placeholder="Digite para buscar na lista de reposição..."
               className="w-full pl-9 pr-4 py-2 bg-slate-900 border border-slate-700 rounded-lg text-white text-sm focus:ring-2 focus:ring-emerald-500/50 focus:outline-none placeholder-slate-500"
             />
             <span className="absolute left-3 top-2.5 text-slate-500 text-xs">🔍</span>
@@ -370,11 +377,10 @@ Solicita-se a aprovação emergencial de compra para regularizar o saldo até os
                       </td>
                       <td className="px-4 py-3.5 text-center">
                         <span
-                          className={`inline-block px-2.5 py-1 text-xs font-bold rounded-lg ${
-                            isFaltante
+                          className={`inline-block px-2.5 py-1 text-xs font-bold rounded-lg ${isFaltante
                               ? "bg-red-500/20 text-red-400 border border-red-500/30"
                               : "bg-amber-500/20 text-amber-400 border border-amber-500/30"
-                          }`}
+                            }`}
                         >
                           {item.status}
                         </span>
@@ -411,6 +417,27 @@ Solicita-se a aprovação emergencial de compra para regularizar o saldo até os
                 <p className="text-sm font-semibold text-slate-300">Gemini está analisando o saldo dos materiais...</p>
                 <p className="text-xs text-slate-500">Cruzando estoque mínimo, fabricante e riscos de desabastecimento.</p>
               </div>
+            ) : erroGemini ? (
+              <div className="p-4 bg-red-950/40 border border-red-500/30 rounded-xl text-sm text-red-300 space-y-2">
+                <p className="font-semibold">Erro ao consultar o Gemini:</p>
+                <p className="text-xs">{erroGemini}</p>
+                <p className="text-xs text-slate-500">Verifique se o backend está rodando e se a GEMINI_API_KEY está configurada no .env</p>
+              </div>
+            ) : textoGemini ? (
+              <div className="space-y-4">
+                <div className="p-4 bg-slate-950/80 rounded-xl border border-slate-800 font-mono text-xs text-slate-300 leading-relaxed whitespace-pre-wrap">
+                  <div className="text-emerald-400 font-bold border-b border-slate-800 pb-2 mb-3">
+                    📋 JUSTIFICATIVA TÉCNICA FORMAL PARA COMPRAS (Gerada pelo Gemini)
+                  </div>
+                  {textoGemini}
+                </div>
+                <div className="flex items-center justify-between text-xs text-slate-400 bg-emerald-950/30 border border-emerald-500/20 px-3 py-2 rounded-lg">
+                  <span className="flex items-center gap-1.5 text-emerald-400">
+                    <span>✨</span> Modelo: Gemini 1.5 Flash (Prompting Biomédico)
+                  </span>
+                  <span>100% Formatado para Cotações</span>
+                </div>
+              </div>
             ) : (
               <div className="space-y-4">
                 <div className="p-4 bg-slate-950/80 rounded-xl border border-slate-800 space-y-3 font-mono text-xs text-slate-300">
@@ -419,7 +446,7 @@ Solicita-se a aprovação emergencial de compra para regularizar o saldo até os
                   </div>
                   <p><strong>Solicitante:</strong> Laboratório de Análises Clínicas / Diagnóstico Biomédico</p>
                   <p><strong>Data:</strong> {new Date().toLocaleDateString("pt-BR")}</p>
-                  
+
                   <div className="border-t border-slate-800/80 pt-2 space-y-1">
                     <p className="text-amber-400 font-semibold">1. MATERIAIS CRÍTICOS A REPOR:</p>
                     {itensProcessados.length > 0 ? (

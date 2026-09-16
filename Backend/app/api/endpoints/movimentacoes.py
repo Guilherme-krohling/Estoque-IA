@@ -15,13 +15,14 @@ from datetime import date
 from decimal import Decimal
 from typing import List, Optional
 
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from sqlalchemy.orm import Session, joinedload
 
 from app.db.database import get_db
+from app.core.limiter import limiter
 from app.models.models import MovimentacaoEstoque, Lote, LocalArmazenamento, Usuario
 from app.schemas.movimentacao_schema import CriarMovimentacao, MovimentacaoRetorno
-from app.core.security import get_current_user
+from app.core.security import get_current_user, require_biomedico
 
 router = APIRouter()
 
@@ -49,7 +50,9 @@ def aplicar_efeito_no_saldo(lote: Lote, tipo: str, quantidade: Decimal):
 
 
 @router.post("/", response_model=MovimentacaoRetorno, status_code=201)
+@limiter.limit("30/minute")
 def criar_movimentacao(
+    request: Request,
     movimentacao: CriarMovimentacao,
     db: Session = Depends(get_db),
     current_user: Usuario = Depends(get_current_user),
@@ -152,7 +155,7 @@ def listar_movimentacoes(
 def estornar_movimentacao(
     movimentacao_id: int,
     db: Session = Depends(get_db),
-    current_user: Usuario = Depends(get_current_user),
+    current_user: Usuario = Depends(require_biomedico),  # Restrito a BIOMEDICO/ADMIN
 ):
     """Anula uma movimentação criando o lançamento inverso (nunca apaga o original)."""
     original = db.query(MovimentacaoEstoque).filter(MovimentacaoEstoque.id == movimentacao_id).first()

@@ -15,11 +15,28 @@ db_url = os.getenv("DATABASE_URL")
 
 if not db_url:
     raise ValueError("ERRO CRÍTICO: Variável DATABASE_URL não encontrada no arquivo .env!")
-    print(f"Conexao com o Banco de Dados configurada ({db_url.split('@')[-1] if '@' in db_url else 'local'})")
+
+print(f"Conexao com o Banco de Dados configurada ({db_url.split('@')[-1] if '@' in db_url else 'local'})")
 
 # Cria o motor de conexão (suporta SQLite local e PostgreSQL)
 connect_args = {"check_same_thread": False} if "sqlite" in db_url else {}
-engine = create_engine(db_url, connect_args=connect_args)
+
+# Pool de conexões: limita conexões simultâneas e protege o banco de sobrecarga
+_pool_kwargs = {}
+if "sqlite" not in db_url:
+    # PostgreSQL suporta pool completo; SQLite usa StaticPool internamente (1 conexão)
+    _pool_kwargs = {
+        "pool_size": 5,        # Máximo 5 conexões mantidas no pool
+        "max_overflow": 10,    # Até 10 conexões extras em pico
+        "pool_timeout": 30,    # Timeout (segundos) para obter conexão do pool
+    }
+
+engine = create_engine(
+    db_url,
+    connect_args=connect_args,
+    pool_pre_ping=True,        # Verifica saúde da conexão antes de usar
+    **_pool_kwargs,
+)
 
 # Fábrica de sessões para transações no banco
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)

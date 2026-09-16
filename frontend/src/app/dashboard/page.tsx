@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useAuth } from "@/contexts/AuthContext";
-import { materiaisApi, lotesApi, categoriasApi, movimentacoesApi, relatoriosApi } from "@/lib/api";
+import { materiaisApi, lotesApi, categoriasApi, movimentacoesApi, relatoriosApi, iaApi } from "@/lib/api";
 import { showToast } from "@/components/Toast";
 import Link from "next/link";
 
@@ -13,6 +13,19 @@ interface Stats {
   movimentacoesHoje: number;
 }
 
+// Tipo da resposta do Motor de Estoque
+interface CoberturaIA {
+  material_id: number;
+  nome: string;
+  risco: "ALTO" | "MODERADO" | "BAIXO" | "DADOS_INSUFICIENTES";
+  classificacao: string;
+  cobertura_dias: number | null;
+  lead_time_dias: number;
+  quantidade_recomendada_comprar: number;
+  mensagem: string;
+  unidade_medida: string;
+}
+
 export default function DashboardPage() {
   const { user } = useAuth();
   const [stats, setStats] = useState<Stats>({ totalMateriais: 0, totalLotes: 0, totalCategorias: 0, movimentacoesHoje: 0 });
@@ -20,19 +33,34 @@ export default function DashboardPage() {
   const [alertasVencimento, setAlertasVencimento] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
 
-  // Estados para a IA Preditiva
+  // IA — Motor de Estoque (dados reais quando endpoint existir)
+  const [iaData, setIaData] = useState<CoberturaIA[]>([]);
+  const [iaDisponivel, setIaDisponivel] = useState(false);
   const [isRefreshingIA, setIsRefreshingIA] = useState(false);
   const [showDetailsModal, setShowDetailsModal] = useState(false);
 
+  const carregarDadosIA = async () => {
+    try {
+      const dados = await iaApi.coberturaGeral(false);
+      const criticos = dados.filter((d: CoberturaIA) => d.risco === "ALTO" || d.risco === "MODERADO");
+      setIaData(criticos.slice(0, 3));
+      setIaDisponivel(true);
+    } catch {
+      setIaDisponivel(false); // fallback: usa texto de demonstração
+    }
+  };
+
   const handleRefreshIA = () => {
     setIsRefreshingIA(true);
-    setTimeout(() => {
+    carregarDadosIA().finally(() => {
       setIsRefreshingIA(false);
-      showToast("Insights Preditivos atualizados com base no banco SQL!", "success");
-    }, 900);
+      showToast("Insights Preditivos atualizados!", "success");
+    });
   };
 
   useEffect(() => {
+    carregarDadosIA(); // tenta carregar dados reais do motor de estoque
+
     Promise.all([
       materiaisApi.listar(),
       lotesApi.listar(),
@@ -58,6 +86,15 @@ export default function DashboardPage() {
       .catch(console.error)
       .finally(() => setLoading(false));
   }, []);
+
+  // Texto do banner de IA: dados reais ou demonstração
+  const iaMaterialCritico = iaData[0] ?? null;
+  const iaBannerAlerta = iaDisponivel && iaMaterialCritico
+    ? `⚠️ RISCO ${iaMaterialCritico.risco}: ${iaMaterialCritico.nome.toUpperCase()} — COBERTURA: ${iaMaterialCritico.cobertura_dias ?? "?"} DIAS`
+    : "⚠️ ALERTA EPIDEMIOLÓGICO: SURTO DE INFLUENZA A/B DETECTADO PARA O OUTONO";
+  const iaBannerTexto = iaDisponivel && iaMaterialCritico
+    ? `"${iaMaterialCritico.nome}" — ${iaMaterialCritico.mensagem} Quantidade recomendada a comprar: ${iaMaterialCritico.quantidade_recomendada_comprar} ${iaMaterialCritico.unidade_medida}."`
+    : '"O Reagente Tampão PCR 10X tem previsão de zerar em 18 de Março. Considerando o aumento histórico de exames respiratórios na região, sugere-se adquirir +20 frascos com o fornecedor Bioclin até 05 de Março."';
 
   const statCards = [
     { key: "totalMateriais", label: "Materiais", icon: "🧪", color: "from-emerald-500 to-teal-600" },
@@ -103,12 +140,21 @@ export default function DashboardPage() {
         </div>
 
         <div className="space-y-3">
-          <div className="flex items-center gap-2 text-amber-400 font-semibold text-sm">
+          <div className={`flex items-center gap-2 font-semibold text-sm ${iaDisponivel && iaMaterialCritico?.risco === "ALTO" ? "text-red-400" : "text-amber-400"}`}>
             <span>⚠️</span>
-            <span>ALERTA EPIDEMIOLÓGICO: SURTO DE INFLUENZA A/B DETECTADO PARA O OUTONO</span>
+            <span>{iaBannerAlerta}</span>
           </div>
+          {iaDisponivel && iaData.length > 1 && (
+            <div className="flex flex-wrap gap-2 pt-1">
+              {iaData.slice(1).map((item) => (
+                <span key={item.material_id} className="text-xs px-2 py-1 bg-slate-800 text-slate-300 border border-slate-700 rounded-lg">
+                  {item.risco === "ALTO" ? "🔴" : "🟡"} {item.nome} · {item.cobertura_dias}d cobertura
+                </span>
+              ))}
+            </div>
+          )}
           <p className="text-slate-300 text-sm leading-relaxed bg-slate-900/60 p-4 rounded-xl border border-slate-800/80 font-mono">
-            &quot;O Reagente Tampão PCR 10X tem previsão de zerar em 18 de Março. Considerando o aumento histórico de exames respiratórios na região, sugere-se adquirir +20 frascos com o fornecedor Bioclin até 05 de Março.&quot;
+            {iaBannerTexto}
           </p>
 
           <div className="flex flex-wrap items-center gap-3 pt-2">

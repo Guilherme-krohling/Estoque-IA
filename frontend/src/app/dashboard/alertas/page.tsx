@@ -1,14 +1,18 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import PageHeader from "@/components/PageHeader";
-import { relatoriosApi } from "@/lib/api";
+import { relatoriosApi, iaApi } from "@/lib/api";
 
 export default function AlertasPage() {
   const [critico, setCritico] = useState<any[]>([]);
   const [vencendo, setVencendo] = useState<any[]>([]);
   const [vencidos, setVencidos] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+
+  // IA Preditiva — Prophet
+  const [previsoes, setPrevisoes] = useState<any[]>([]);
+  const [loadingIA, setLoadingIA] = useState(true);
+  const [iaDisponivel, setIaDisponivel] = useState(false);
 
   useEffect(() => {
     Promise.all([
@@ -23,6 +27,22 @@ export default function AlertasPage() {
       })
       .catch(console.error)
       .finally(() => setLoading(false));
+
+    // Carrega previsões epidemiológicas do Prophet
+    iaApi
+      .previsaoGeral()
+      .then((dados) => {
+        // Filtra materiais com risco ALTO ou MODERADO (exibe todos os alertas reais)
+        const relevantes = dados.filter(
+          (d: any) => d.risco_surto === "ALTO" || d.risco_surto === "MODERADO"
+        );
+        setPrevisoes(relevantes);
+        setIaDisponivel(true);
+      })
+      .catch(() => {
+        setIaDisponivel(false); // fallback: mostra mensagem de indisponibilidade
+      })
+      .finally(() => setLoadingIA(false));
   }, []);
 
   const totalVencimento60 = vencendo.length;
@@ -99,7 +119,7 @@ export default function AlertasPage() {
         </div>
       </div>
 
-      {/* Card Exclusivo de IA Preditiva Epidemiológica (CID-10) */}
+      {/* Card de IA Preditiva Epidemiológica — Prophet */}
       <div className="glass p-6 rounded-2xl border border-purple-500/30 bg-gradient-to-r from-slate-900 via-slate-900/90 to-purple-950/30 space-y-4 shadow-xl">
         <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 border-b border-slate-700/50 pb-3">
           <div className="flex items-center gap-3">
@@ -107,74 +127,111 @@ export default function AlertasPage() {
               🧬
             </div>
             <div>
-              <div className="flex items-center gap-2">
+              <div className="flex items-center gap-2 flex-wrap">
                 <h2 className="text-base font-bold text-white">Previsão de Surtos nas Próximas 8 Semanas</h2>
                 <span className="px-2.5 py-0.5 text-[10px] font-extrabold bg-purple-500/20 text-purple-300 border border-purple-500/40 rounded-full">
-                  IA Preditiva + CID-10
+                  Prophet + IA Preditiva
                 </span>
+                {iaDisponivel && previsoes.length > 0 && (
+                  <span className="px-2 py-0.5 text-[10px] font-semibold bg-red-500/20 text-red-300 border border-red-500/30 rounded-full">
+                    {previsoes.length} insumo(s) em alerta
+                  </span>
+                )}
               </div>
               <p className="text-xs text-slate-400">
-                Relaciona o histórico de diagnósticos CID-10 com a projeção de insumos consumidos.
+                {iaDisponivel
+                  ? "Baseado no histórico real de consumo dos materiais via modelo Prophet."
+                  : "Relaciona o histórico de diagnósticos com a projeção de insumos consumidos."}
               </p>
             </div>
           </div>
           <span className="text-xs text-slate-400 font-mono bg-slate-900/80 px-3 py-1.5 rounded-lg border border-slate-800">
-            Região Sudeste · Outono 2026
+            {iaDisponivel ? "Modelo real · Prophet" : "Região Sudeste · Outono 2026"}
           </span>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 pt-1">
-          {/* Surto 1 */}
-          <div className="p-4 bg-slate-900/80 rounded-xl border border-slate-800 space-y-2 hover:border-purple-500/40 transition-colors">
-            <div className="flex justify-between items-center">
-              <span className="text-xs font-bold text-amber-400 bg-amber-500/10 px-2 py-0.5 rounded border border-amber-500/20">
-                CID-10 J10
-              </span>
-              <span className="text-[11px] text-slate-400 font-medium">Pico em ~3 semanas</span>
+        {/* Corpo do card */}
+        {loadingIA ? (
+          <div className="flex justify-center py-8">
+            <div className="w-6 h-6 border-2 border-purple-400 border-t-transparent rounded-full animate-spin" />
+          </div>
+        ) : iaDisponivel && previsoes.length > 0 ? (
+          // — Dados reais do Prophet —
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 pt-1">
+            {previsoes.map((p: any, idx: number) => {
+              const corRisco = p.risco_surto === "ALTO"
+                ? { badge: "bg-red-500/10 text-red-400 border-red-500/20", barra: "text-red-400 bg-red-500/10 border-red-500/20" }
+                : { badge: "bg-amber-500/10 text-amber-400 border-amber-500/20", barra: "text-amber-400 bg-amber-500/10 border-amber-500/20" };
+              const tendenciaEmoji = p.tendencia === "crescente" ? "📈" : p.tendencia === "decrescente" ? "📉" : "→";
+              return (
+                <div key={idx} className="p-4 bg-slate-900/80 rounded-xl border border-slate-800 space-y-2 hover:border-purple-500/40 transition-colors">
+                  <div className="flex justify-between items-center">
+                    <span className={`text-xs font-bold px-2 py-0.5 rounded border ${corRisco.badge}`}>
+                      Risco {p.risco_surto}
+                    </span>
+                    <span className="text-[11px] text-slate-400 font-medium">
+                      {tendenciaEmoji} Tendência {p.tendencia}
+                    </span>
+                  </div>
+                  <h3 className="font-semibold text-white text-sm truncate" title={p.nome}>{p.nome}</h3>
+                  <p className="text-xs text-slate-400">
+                    <strong className="text-slate-300">Consumo previsto:</strong>{" "}
+                    {p.consumo_previsto_total.toFixed(1)} {p.unidade_medida} em {p.horizonte_dias} dias
+                  </p>
+                  <div className={`text-[11px] font-medium px-2 py-1 rounded border ${corRisco.barra}`}>
+                    Base: {p.consumo_baseline_diario.toFixed(2)}/dia → Previsto: {p.consumo_previsto_diario.toFixed(2)}/dia
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        ) : iaDisponivel && previsoes.length === 0 ? (
+          // — Dados reais, mas sem risco elevado —
+          <div className="py-6 text-center space-y-1">
+            <p className="text-emerald-400 font-semibold text-sm">✅ Nenhum material com risco de surto elevado no horizonte de 8 semanas.</p>
+            <p className="text-xs text-slate-500">O modelo Prophet analisou o histórico real e não identificou tendência de aumento significativo.</p>
+          </div>
+        ) : (
+          // — Fallback quando Prophet não tem dados ou endpoint indisponível —
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 pt-1">
+            {/* Surto 1 — estático de demonstração */}
+            <div className="p-4 bg-slate-900/80 rounded-xl border border-slate-800 space-y-2 hover:border-purple-500/40 transition-colors">
+              <div className="flex justify-between items-center">
+                <span className="text-xs font-bold text-amber-400 bg-amber-500/10 px-2 py-0.5 rounded border border-amber-500/20">CID-10 J10</span>
+                <span className="text-[11px] text-slate-400 font-medium">Pico em ~3 semanas</span>
+              </div>
+              <h3 className="font-semibold text-white text-sm">Influenza A/B (Gripe Sazonal)</h3>
+              <p className="text-xs text-slate-400"><strong className="text-slate-300">Insumos Críticos:</strong> Tampão PCR 10X, Kit Swab Nasofaríngeo.</p>
+              <div className="text-[11px] text-emerald-400 font-medium bg-emerald-500/10 px-2 py-1 rounded border border-emerald-500/20">
+                💡 Dados de demonstração (histórico insuficiente)
+              </div>
             </div>
-            <h3 className="font-semibold text-white text-sm">Influenza A/B (Gripe Sazonal)</h3>
-            <p className="text-xs text-slate-400">
-              <strong className="text-slate-300">Insumos Críticos:</strong> Tampão PCR 10X, Kit Swab Nasofaríngeo.
-            </p>
-            <div className="text-[11px] text-emerald-400 font-medium bg-emerald-500/10 px-2 py-1 rounded border border-emerald-500/20">
-              💡 Recomenda-se reforço de +35% de reagentes PCR.
+            {/* Surto 2 — estático de demonstração */}
+            <div className="p-4 bg-slate-900/80 rounded-xl border border-slate-800 space-y-2 hover:border-purple-500/40 transition-colors">
+              <div className="flex justify-between items-center">
+                <span className="text-xs font-bold text-rose-400 bg-rose-500/10 px-2 py-0.5 rounded border border-rose-500/20">CID-10 B97.4</span>
+                <span className="text-[11px] text-slate-400 font-medium">Pico em ~2 semanas</span>
+              </div>
+              <h3 className="font-semibold text-white text-sm">Vírus Sincicial Respiratório (VSR)</h3>
+              <p className="text-xs text-slate-400"><strong className="text-slate-300">Insumos Críticos:</strong> Meios de Transporte Viral (VTM).</p>
+              <div className="text-[11px] text-amber-400 font-medium bg-amber-500/10 px-2 py-1 rounded border border-amber-500/20">
+                ⚠️ Dados de demonstração (histórico insuficiente)
+              </div>
+            </div>
+            {/* Surto 3 — estático de demonstração */}
+            <div className="p-4 bg-slate-900/80 rounded-xl border border-slate-800 space-y-2 hover:border-purple-500/40 transition-colors">
+              <div className="flex justify-between items-center">
+                <span className="text-xs font-bold text-cyan-400 bg-cyan-500/10 px-2 py-0.5 rounded border border-cyan-500/20">CID-10 A90</span>
+                <span className="text-[11px] text-slate-400 font-medium">Pico em ~6 semanas</span>
+              </div>
+              <h3 className="font-semibold text-white text-sm">Dengue Sorotipos 1/2</h3>
+              <p className="text-xs text-slate-400"><strong className="text-slate-300">Insumos Críticos:</strong> Cassetes Sorológicos NS1 / IgG-IgM.</p>
+              <div className="text-[11px] text-slate-500 font-medium bg-slate-800/60 px-2 py-1 rounded border border-slate-700">
+                📊 Dados de demonstração (histórico insuficiente)
+              </div>
             </div>
           </div>
-
-          {/* Surto 2 */}
-          <div className="p-4 bg-slate-900/80 rounded-xl border border-slate-800 space-y-2 hover:border-purple-500/40 transition-colors">
-            <div className="flex justify-between items-center">
-              <span className="text-xs font-bold text-rose-400 bg-rose-500/10 px-2 py-0.5 rounded border border-rose-500/20">
-                CID-10 B97.4
-              </span>
-              <span className="text-[11px] text-slate-400 font-medium">Pico em ~2 semanas</span>
-            </div>
-            <h3 className="font-semibold text-white text-sm">Vírus Sincicial Respiratório (VSR)</h3>
-            <p className="text-xs text-slate-400">
-              <strong className="text-slate-300">Insumos Críticos:</strong> Meios de Transporte Viral (VTM).
-            </p>
-            <div className="text-[11px] text-amber-400 font-medium bg-amber-500/10 px-2 py-1 rounded border border-amber-500/20">
-              ⚠️ Risco moderado de esgotamento de ponteiras.
-            </div>
-          </div>
-
-          {/* Surto 3 */}
-          <div className="p-4 bg-slate-900/80 rounded-xl border border-slate-800 space-y-2 hover:border-purple-500/40 transition-colors">
-            <div className="flex justify-between items-center">
-              <span className="text-xs font-bold text-cyan-400 bg-cyan-500/10 px-2 py-0.5 rounded border border-cyan-500/20">
-                CID-10 A90
-              </span>
-              <span className="text-[11px] text-slate-400 font-medium">Pico em ~6 semanas</span>
-            </div>
-            <h3 className="font-semibold text-white text-sm">Dengue Sorotipos 1/2</h3>
-            <p className="text-xs text-slate-400">
-              <strong className="text-slate-300">Insumos Críticos:</strong> Cassetes Sorológicos NS1 / IgG-IgM.
-            </p>
-            <div className="text-[11px] text-emerald-400 font-medium bg-emerald-500/10 px-2 py-1 rounded border border-emerald-500/20">
-              ✅ Saldo atual cobre a demanda estimada.
-            </div>
-          </div>
-        </div>
+        )}
       </div>
 
       {/* Main Panels Grid (2 Cards) */}

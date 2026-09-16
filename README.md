@@ -172,42 +172,33 @@ erDiagram
 
 ---
 
-## 6. Planejamento Futuro (Módulo de IA)
+## 6. Planejamento da Inteligência Artificial
 
-O ecossistema inteligente de previsão está planejado para a **Fase 3** do projeto. A arquitetura é dividida em duas camadas que trabalham em equipe: uma **IA preditiva** (matemática, opera no escuro) e uma **IA generativa** (LLM, traduz a previsão em recomendação acionável no dashboard).
+> **Especificação Oficial:** Para os detalhes técnicos completos da IA, consulte a documentação oficial em [stockia-ai-corrigido.md](file:///d:/projetos/Prj-Lab/anotacoes/stockia-ai-corrigido.md).
 
-### 6.1. Camada Preditiva — Prophet como motor principal
+O ecossistema inteligente de previsão está planejado para a **Fase 3** do projeto. A arquitetura é dividida em **três componentes bem definidos** para garantir máxima precisão e zero risco de alucinação:
 
-O motor de previsão de demanda na Fase 3.1 será o **Prophet** (biblioteca open-source da Meta), escolhido após avaliação comparativa com Redes Neurais LSTM. Os critérios decisórios:
+### 6.1. IA Preditiva — Prophet (Sazonalidade) + XGBoost (Demanda) vs. Baseline
+O motor preditivo utiliza algoritmos estatísticos e de aprendizado de máquina treinados sobre o histórico de movimentações e dados epidemiológicos:
+* **Previsão Epidemiológica:** **Prophet** (com sazonalidade anual e regressores regionais) comparado diretamente contra um *baseline* simples (média móvel) para validação via métricas MAE/RMSE.
+* **Previsão de Demanda:** **XGBoost / Gradient Boosting** para relacionar o histórico real de consumo de insumos sem utilizar multiplicadores arbitrários.
 
-| Critério | Prophet | LSTM |
+### 6.2. Motor de Estoque Determinístico
+Camada de regras de negócio em Python/FastAPI que calcula matematicamente:
+* **Cobertura de Estoque em Dias**: `saldo_disponivel / consumo_diario_previsto`.
+* **Risco de Ruptura**: Comparação da cobertura com o **Lead Time** do fornecedor.
+* **Quantidade Recomendada a Comprar**: Cálculo determinístico considerando saldo, estoque de segurança, validade FEFO e pedidos de compra que já estão em aberto.
+
+### 6.3. IA Generativa — Gemini como Tradutor Explicativo
+Um modelo de linguagem (**Google Gemini 1.5 Flash**) é acionado pontualmente para transformar os dados estruturados do motor de estoque em linguagem natural biomédica:
+* **Gerador de Justificativa Técnica de Compras:** Na tela de Reposição (`/dashboard/reposicao`), o Gemini compõe pareceres formais prontos para envio ao setor de compras.
+* **Regra de Ouro:** O LLM **nunca** calcula saldos, coberturas ou quantidades a comprar. A matemática vem 100% do motor de estoque.
+
+### 6.4. Escopo do MVP vs. Evolução Futura
+
+| Fase | Recursos de IA | Telas Atendidas |
 |---|---|---|
-| **Volume mínimo de dados** | 6-12 meses | 24+ meses |
-| **Sazonalidade epidemiológica** | Nativa (`meses_pico` da doença vira regressor) | Aprende, mas precisa de muito histórico |
-| **Explicabilidade (ANVISA/SUS)** | Alta — mostra a curva de cada componente | Baixa — black-box |
-| **Custo computacional** | Roda no backend, sem GPU | Treino caro, requer tuning |
-| **Robustez a buracos no histórico** | Alta | Sensível |
+| **Fase 3 (MVP)** | Previsão Epidemiológica, Motor de Estoque Determinístico e Justificativas Técnicas via Gemini | `/dashboard`, `/dashboard/alertas` e `/dashboard/reposicao` |
+| **Fase 4 (Futuro)** | Leitura de FISPQ via **RAG** (*Retrieval-Augmented Generation*) com vetorização de PDFs ABNT NBR 14725 | `/dashboard/estoque` |
+| **Fase 5 (Futuro)** | Assistente Biomédico conversacional especializado em linguagem natural | `/dashboard/assistente-ia` |
 
-Como o StockIA é um sistema novo e o histórico de movimentações `USO` ainda está sendo construído, **começar pelo Prophet é a decisão correta**. LSTM fica como linha de pesquisa para a Fase 3.3, quando houver dados suficientes para um benchmark justo.
-
-**Roadmap de evolução da camada preditiva:**
-
-| Subfase | Pré-requisito | Modelo | Inputs |
-|---|---|---|---|
-| **3.1** | ≥6 meses de movimentações `USO` | Prophet univariado | Histórico de uso por material |
-| **3.2** | ≥12 meses + acesso a APIs externas | Prophet + `add_regressor` | + dados [InfoDengue](https://info.dengue.mat.br/), boletins do SINAN, clima (INMET/CPTEC) |
-| **3.3** | ≥24 meses | LSTM (benchmark vs Prophet) | Substitui Prophet **apenas se** ganho de precisão > 15% |
-
-Como o Prophet roda numa rotina noturna (madrugada), ele varre o banco e identifica padrões do tipo: *"O Lote X vai zerar em 15 de abril, mas o pico histórico da doença Y na região começa em 10 de abril"*. Esse alerta numérico é então passado para a camada generativa.
-
-### 6.2. Camada Generativa — LLM como tradutor humano
-
-Em cima do alerta matemático do Prophet, um modelo generativo (**Gemini** ou **GPT-4**) gera a recomendação em linguagem natural exibida no dashboard:
-
-> ⚠️ **Alerta Crítico** — Historicamente, a região apresenta um surto de Dengue nesta época do ano. Seu estoque atual do reagente *Kit NS1* suporta apenas **12 dias**. Sugerimos acionar o fornecedor *Bioclin* imediatamente.
-
-A separação Prophet (decisão matemática) + LLM (tradução para humano) é uma escolha consciente: a IA generativa **nunca decide o que prever** — ela só explica o que a IA preditiva já calculou. Isso mantém a auditabilidade exigida pelo ambiente regulado.
-
-### 6.3. Leitor Inteligente de FISPQ via RAG
-
-Componente independente, planejado para a mesma fase: permitir o upload da Ficha de Informações de Segurança de Produtos Químicos (FISPQ) de um novo reagente e fazer perguntas livres em linguagem natural sobre manipulação segura, riscos de toxicidade e procedimentos de descarte. Implementação via **RAG** (*Retrieval-Augmented Generation*) — vetoriza o documento, indexa, e responde com fundamento direto no texto da própria FISPQ (sem alucinação).
