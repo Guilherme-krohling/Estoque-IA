@@ -203,7 +203,7 @@ JUSTIFICATIVA:"""
 
         client = google_genai.Client(api_key=api_key)
         response = client.models.generate_content(
-            model="gemini-2.0-flash",  # modelo estável e disponível em contas gratuitas
+            model="gemini-3.6-flash",  # modelo mais recente exigido pela API do Google
             contents=prompt,
             config={
                 "max_output_tokens": 2048,  # margem confortável para texto completo
@@ -211,7 +211,7 @@ JUSTIFICATIVA:"""
             },
         )
         texto = response.text.strip()
-        logger.info("Gemini 2.0-flash chamado com sucesso para %d materiais.", len(coberturas))
+        logger.info("Gemini 3.6-flash chamado com sucesso para %d materiais.", len(coberturas))
     except ImportError:
         raise HTTPException(
             status_code=503,
