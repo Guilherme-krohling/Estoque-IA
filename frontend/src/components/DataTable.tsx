@@ -210,7 +210,7 @@ export default function DataTable<T extends { id: number }>({
                     }`}
                 >
                   {columns.map((col) => (
-                    <td key={col.key} className="px-4 py-3 text-slate-200">
+                    <td key={col.key} className="px-4 py-3 text-slate-200 break-words whitespace-normal max-w-[250px]">
                       {col.render
                         ? col.render(item)
                         : String((item as any)[col.key] ?? "-")}

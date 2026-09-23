@@ -411,7 +411,7 @@ export default function EstoqueWorkspace() {
                         <p className="text-xs text-slate-400 truncate">Lote: {l.numero_lote}{mat?.unidade_medida ? ` · ${mat.unidade_medida}` : ""}</p>
                       </div>
                       <div className="min-w-0">
-                        <span className="text-xs text-slate-300 truncate" title={local?.tipo || ""}>{local?.nome || <span className="text-slate-600">—</span>}</span>
+                        <span className="block text-xs text-slate-300 truncate" title={local?.tipo || ""}>{local?.nome || <span className="text-slate-600">—</span>}</span>
                       </div>
                       <div>
                         <span className={`text-xs px-2 py-1 rounded-md font-medium ${isVencido ? "bg-red-500/20 text-red-400" : "bg-emerald-500/10 text-emerald-400"}`}>
