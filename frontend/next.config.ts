@@ -26,7 +26,7 @@ const nextConfig: NextConfig = {
               "font-src 'self' https://fonts.gstatic.com",
               "img-src 'self' data: blob:",
               // Permite conexão com a API (dev e prod)
-              "connect-src 'self' http://localhost:8000 http://127.0.0.1:8000",
+              "connect-src 'self' http://localhost:8000 http://127.0.0.1:8000 https://laurus-ai.onrender.com",
               "frame-ancestors 'none'", // Equivalente a X-Frame-Options: DENY via CSP
             ].join("; "),
           },
