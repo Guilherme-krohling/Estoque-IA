@@ -1,5 +1,5 @@
 """
-StockIA — Endpoint Lotes
+Laurus AI — Endpoint Lotes
 ===========================
 CRUD de lotes com controle FEFO (First Expired, First Out).
 """

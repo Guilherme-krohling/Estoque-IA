@@ -1,5 +1,5 @@
 """
-StockIA — Endpoint Fornecedores
+Laurus AI — Endpoint Fornecedores
 =================================
 CRUD completo para gestão de fornecedores.
 """

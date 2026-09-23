@@ -1,5 +1,5 @@
 """
-StockIA — Endpoint de Autenticação
+Laurus AI — Endpoint de Autenticação
 ====================================
 Registro de usuários e Login (retorna JWT).
 Com Rate Limiting e logging de auditoria de segurança.
@@ -17,7 +17,7 @@ from app.schemas.usuario_schema import CriarUsuario, LoginUsuario, TokenRetorno,
 from app.core.security import hash_senha, verificar_senha, criar_token_acesso, require_admin
 
 router = APIRouter()
-security_logger = logging.getLogger("stockia.security")
+security_logger = logging.getLogger("laurus.security")
 
 
 # =====================================================================

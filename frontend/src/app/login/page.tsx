@@ -39,7 +39,7 @@ export default function LoginPage() {
           <div className="inline-flex w-16 h-16 rounded-2xl bg-gradient-to-br from-emerald-400 to-cyan-500 items-center justify-center text-white font-bold text-2xl mb-4 shadow-lg shadow-emerald-500/25">
             S
           </div>
-          <h1 className="text-3xl font-bold text-white">StockIA</h1>
+          <h1 className="text-3xl font-bold text-white">Laurus AI</h1>
           <p className="text-slate-400 mt-1">Gestão Inteligente de Laboratório</p>
         </div>
 

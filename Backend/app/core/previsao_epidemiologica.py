@@ -1,10 +1,10 @@
 """
-StockIA — Motor de Previsão Epidemiológica e Cruzamento com Estoque
+Laurus AI — Motor de Previsão Epidemiológica e Cruzamento com Estoque
 ===================================================================
 Previsão de Casos Epidemiológicos (Dengue e Influenza) via Prophet (Meta)
 e conversão determinística em demanda projetada de materiais laboratoriais.
 
-A REGRA DE OURO DO STOCKIA:
+A REGRA DE OURO DO LAURUS AI:
   1. Prophet prevê a curva de CASOS de doenças (Dengue A90 e Influenza J10).
   2. A demanda de materiais é derivada:
      Demanda = Casos Previstos × quantidade_por_exame × 1.20 (20% margem).

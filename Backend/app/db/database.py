@@ -1,5 +1,5 @@
 """
-StockIA — Configuração do Banco de Dados
+Laurus AI — Configuração do Banco de Dados
 ==========================================
 Conecta ao PostgreSQL via SQLAlchemy.
 """

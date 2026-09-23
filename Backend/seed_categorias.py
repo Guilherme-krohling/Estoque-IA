@@ -1,5 +1,5 @@
 """
-StockIA — Seed de dados iniciais
+Laurus AI — Seed de dados iniciais
 ===================================
 Cria um usuário ADMIN padrão e categorias base para iniciar o sistema.
 """
@@ -14,7 +14,7 @@ db = Session(bind=engine)
 # =====================================================================
 # 1. USUÁRIO ADMIN PADRÃO
 # =====================================================================
-admin_email = "admin@stockia.com"
+admin_email = "admin@laurus.ai"
 admin_existente = db.query(Usuario).filter(Usuario.email == admin_email).first()
 
 if not admin_existente:
@@ -25,7 +25,7 @@ if not admin_existente:
         perfil="ADMIN",
     )
     db.add(admin)
-    print("✅ Usuário ADMIN criado: admin@stockia.com / admin123")
+    print("✅ Usuário ADMIN criado: admin@laurus.ai / admin123")
 else:
     print("ℹ️  Usuário ADMIN já existe, pulando...")
 

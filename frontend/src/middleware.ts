@@ -1,10 +1,10 @@
 /**
- * StockIA — Route Guard no Edge (Next.js Middleware)
+ * Laurus AI — Route Guard no Edge (Next.js Middleware)
  * ====================================================
  * Roda ANTES do React hidratar qualquer página.
  * Protege todas as rotas /dashboard/* contra acesso não autenticado.
  *
- * Lê o token do cookie "stockia_token" (definido no AuthContext ao fazer login).
+ * Lê o token do cookie "laurus_token" (definido no AuthContext ao fazer login).
  * Se ausente, redireciona para /login antes de qualquer HTML ser entregue ao browser.
  */
 
@@ -15,7 +15,7 @@ import type { NextRequest } from "next/server";
 const PROTECTED_PREFIXES = ["/dashboard"];
 
 // Nome do cookie onde o token JWT é armazenado (deve coincidir com AuthContext.tsx)
-const TOKEN_COOKIE = "stockia_token";
+const TOKEN_COOKIE = "laurus_token";
 
 export function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;

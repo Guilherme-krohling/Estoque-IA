@@ -1,5 +1,5 @@
 """
-StockIA — API Principal
+Laurus AI — API Principal
 =========================
 FastAPI com todas as rotas, CORS, Rate Limiting, headers de segurança e logging de auditoria.
 """
@@ -39,13 +39,13 @@ logging.basicConfig(
     level=logging.INFO,
     format="%(asctime)s [%(levelname)s] %(name)s: %(message)s",
 )
-security_logger = logging.getLogger("stockia.security")
+security_logger = logging.getLogger("laurus.security")
 
 # =====================================================================
 # RATE LIMITER e APLICAÇÃO
 # =====================================================================
 app = FastAPI(
-    title="StockIA - Gestão de Laboratório",
+    title="Laurus AI - Gestão de Laboratório",
     description="API para controle de estoque laboratorial com rastreabilidade, auditoria e previsão de demanda por IA.",
     version="2.0.0",
 )
@@ -128,7 +128,7 @@ def integrity_error_handler(request: Request, exc: IntegrityError):
 @app.get("/", tags=["Status"])
 def rota_raiz():
     return {
-        "aplicacao": "StockIA",
+        "aplicacao": "Laurus AI",
         "versao": "2.0.0",
         "status": "online",
         "docs": "/docs",

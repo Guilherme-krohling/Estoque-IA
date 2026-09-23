@@ -1,5 +1,5 @@
 """
-StockIA — Script de Inicialização Completa do Banco SQLite
+Laurus AI — Script de Inicialização Completa do Banco SQLite
 ============================================================
 Cria todas as tabelas atualizadas da Fase 2 (Locais, Materiais com 
 estoque mínimo/unidade, Lotes com local_id, Movimentações com estorno/transferência)
@@ -26,7 +26,7 @@ session = Session(bind=engine)
 
 try:
     # 2. Usuário Admin
-    admin_email = "admin@stockia.com"
+    admin_email = "admin@laurus.ai"
     if not session.query(Usuario).filter(Usuario.email == admin_email).first():
         admin = Usuario(
             nome="Administrador",
@@ -35,7 +35,7 @@ try:
             perfil="ADMIN",
         )
         session.add(admin)
-        print("  [OK] Usuario ADMIN criado: admin@stockia.com / admin123")
+        print("  [OK] Usuario ADMIN criado: admin@laurus.ai / admin123")
 
     # 3. Locais de Armazenamento
     if not session.query(LocalArmazenamento).first():

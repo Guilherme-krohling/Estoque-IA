@@ -1,11 +1,11 @@
-"""Teste rápido da API StockIA."""
+"""Teste rápido da API Laurus AI."""
 import urllib.request
 import json
 
 BASE = "http://127.0.0.1:8000/api"
 
 # 1. LOGIN
-login_data = json.dumps({"email": "admin@stockia.com", "senha": "admin123"}).encode()
+login_data = json.dumps({"email": "admin@laurus.ai", "senha": "admin123"}).encode()
 req = urllib.request.Request(f"{BASE}/auth/login", data=login_data, headers={"Content-Type": "application/json"})
 r = urllib.request.urlopen(req)
 token = json.loads(r.read())["access_token"]

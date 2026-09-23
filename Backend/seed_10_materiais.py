@@ -1,5 +1,5 @@
 """
-StockIA — Seed de 10 Materiais de Teste e Lotes
+Laurus AI — Seed de 10 Materiais de Teste e Lotes
 =================================================
 Cadastra 10 materiais de teste com seus respectivos lotes e 
 movimentações de ENTRADA para popular o sistema.
@@ -13,7 +13,7 @@ from app.models.models import Material, Lote, MovimentacaoEstoque, Categoria, Fo
 db = SessionLocal()
 
 try:
-    admin = db.query(Usuario).filter(Usuario.email == "admin@stockia.com").first()
+    admin = db.query(Usuario).filter(Usuario.email == "admin@laurus.ai").first()
     usuario_id = admin.id if admin else 1
 
     fornecedor = db.query(Fornecedor).first()

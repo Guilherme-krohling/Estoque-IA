@@ -12,15 +12,15 @@ export interface TokenResponse {
 
 function getToken(): string | null {
   if (typeof window === "undefined") return null;
-  return localStorage.getItem("stockia_token");
+  return localStorage.getItem("laurus_token");
 }
 
 export function setToken(token: string) {
-  localStorage.setItem("stockia_token", token);
+  localStorage.setItem("laurus_token", token);
 }
 
 export function clearToken() {
-  localStorage.removeItem("stockia_token");
+  localStorage.removeItem("laurus_token");
 }
 
 async function fetchApi<T>(

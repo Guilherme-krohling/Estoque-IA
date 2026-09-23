@@ -1,5 +1,5 @@
 """
-StockIA — Endpoint Usuários (Admin)
+Laurus AI — Endpoint Usuários (Admin)
 =====================================
 CRUD de usuários protegido por autenticação.
 """

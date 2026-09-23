@@ -1,5 +1,5 @@
 """
-StockIA — Endpoints de IA
+Laurus AI — Endpoints de IA
 ==========================
 Endpoints disponíveis:
   GET  /api/ia/cobertura                → Motor de Estoque determinístico (todos os materiais)
@@ -180,7 +180,7 @@ def gerar_justificativa(
         contexto_epidemio += f"\n{body.contexto_epidemiologico}"
 
     prompt = f"""Você é um sistema especialista em gestão de estoque laboratorial biomédico.
-Com base nos dados abaixo do sistema StockIA, redija uma justificativa técnica FORMAL e CONCISA
+Com base nos dados abaixo do sistema Laurus AI, redija uma justificativa técnica FORMAL e CONCISA
 para abertura de processo de compra de materiais laboratoriais.
 
 MATERIAIS ANALISADOS:
@@ -367,7 +367,75 @@ def consulta_assistente(
         from sqlalchemy import func
         total_materiais = db.query(func.count(Material.id)).filter(Material.ativo == True).scalar()
         criticos = calcular_cobertura_todos(db, apenas_criticos=True)
-        texto = f"📊 **RESUMO EXECUTIVO DO ESTOQUE STOCKIA**\\n\\n"
+        texto = f"📊 **RESUMO EXECUTIVO DO ESTOQUE LAURUS AI**\\n\\n"
+        texto += f"• **Total de Itens Monitorados:** {total_materiais} materiais cadastrados ativos.\\n"
+        texto += f"• **Status da Reposição:** {len(criticos)} materiais identificados como nível CRÍTICO (Abaixo da linha de segurança).\\n"
+        texto += f"\\n*Relatório atualizado em tempo real no banco de dados do laboratório.*"
+        return {"resposta": texto}
+        
+    else:
+        return {"resposta": f"Com base nos dados atuais do seu estoque:\\n\\nPara **\\\"{body.mensagem}\\\"**, recomendo verificar a aba de Reposição ou Estoque.\\n\\nExperimente perguntar sobre vencimentos em 30 dias, resumo para diretoria, picos epidemiológicos ou procedimentos FISPQ de biossegurança."}
+# =====================================================================
+# ENDPOINT 6 — Consulta Assistente Dinâmico (Sem LLM / Dados Reais)
+# =====================================================================
+class ConsultaAssistenteRequest(BaseModel):
+    mensagem: str
+
+@router.post("/assistente/consulta", summary="Respostas dinâmicas baseadas em regras e dados reais")
+def consulta_assistente(
+    body: ConsultaAssistenteRequest,
+    db: Session = Depends(get_db),
+    _user: Usuario = Depends(get_current_user),
+):
+    """
+    Recebe a pergunta do usuário, identifica o tema e retorna dados formatados
+    diretamente do banco de dados (Substitui as respostas estáticas).
+    """
+    mensagem = body.mensagem.lower()
+    
+    if "vencer" in mensagem or "30 dias" in mensagem or "validade" in mensagem:
+        from datetime import date, timedelta
+        limite = date.today() + timedelta(days=30)
+        from app.models.models import Lote, Material
+        lotes_vencendo = db.query(Lote).join(Material).filter(
+            Lote.data_validade <= limite,
+            Lote.data_validade >= date.today(),
+            Lote.quantidade_atual > 0
+        ).order_by(Lote.data_validade.asc()).all()
+        
+        if not lotes_vencendo:
+            return {"resposta": "Excelente notícia! Não há lotes com vencimento previsto para os próximos 30 dias com saldo em estoque."}
+            
+        texto = f"Encontrei {len(lotes_vencendo)} lote(s) com atenção exigida nos próximos 30 dias:\\n\\n"
+        for lote in lotes_vencendo:
+            dias = (lote.data_validade - date.today()).days
+            texto += f"• **{lote.material.nome}**\\n  - Lote: {lote.numero_lote} (Saldo: {float(lote.quantidade_atual)} {lote.material.unidade_medida})\\n  - Vence em {dias} dias.\\n\\n"
+        texto += "**Recomendação Biomédica:** Priorizar o consumo imediato destes lotes no método PEPS."
+        return {"resposta": texto}
+        
+    elif "outono" in mensagem or "doenç" in mensagem or "pico" in mensagem or "epidemiolog" in mensagem:
+        res_influenza = prever_casos_epidemiologicos("Influenza", ["Santos"], db=db)
+        res_dengue = prever_casos_epidemiologicos("Dengue", ["Santos"], db=db)
+        
+        pico_inf = res_influenza["indicadores"].get("pico_semana", "N/A")
+        pico_inf_data = res_influenza["indicadores"].get("pico_data", "N/A")
+        pico_den = res_dengue["indicadores"].get("pico_semana", "N/A")
+        
+        texto = "Analisando as previsões epidemiológicas (Prophet) para a região:\\n\\n"
+        texto += f"1. **Influenza A/B (J10):** Tendência {res_influenza['indicadores'].get('tendencia')}. Pico esperado na semana {pico_inf} ({pico_inf_data}).\\n"
+        texto += f"2. **Dengue (A90):** Tendência {res_dengue['indicadores'].get('tendencia')}. Pico esperado na semana {pico_den}.\\n\\n"
+        texto += "**Recomendação:** Acompanhe a aba Previsão Epidemiológica para cruzar as informações com as datas reais de validade dos kits diagnósticos associados."
+        return {"resposta": texto}
+        
+    elif "brometo" in mensagem or "biossegurança" in mensagem or "fispq" in mensagem:
+        return {"resposta": "🛡️ **Ficha de Biossegurança Padrão ANVISA (RDC 302/2005)**\\n\\n• **Exemplo - Brometo de Etídio:** Agente Mutagênico (Grupo B).\\n• **EPIs Obrigatórios:** Luvas duplas de nitrilo, óculos de segurança contra respingos, capela de exaustão química.\\n\\n• **Derramamento:** Isolar, absorver a seco, descontaminar (KMnO4 + HCl diluído) e descartar no Grupo B.\\n\\n*Nota: O acesso a PDFs FISPQ vetoriais estará disponível em versão futura (RAG).*"}
+        
+    elif "resumo" in mensagem or "diretoria" in mensagem or "executivo" in mensagem:
+        from app.models.models import Material, Lote
+        from sqlalchemy import func
+        total_materiais = db.query(func.count(Material.id)).filter(Material.ativo == True).scalar()
+        criticos = calcular_cobertura_todos(db, apenas_criticos=True)
+        texto = f"📊 **RESUMO EXECUTIVO DO ESTOQUE LAURUS AI**\\n\\n"
         texto += f"• **Total de Itens Monitorados:** {total_materiais} materiais cadastrados ativos.\\n"
         texto += f"• **Status da Reposição:** {len(criticos)} materiais identificados como nível CRÍTICO (Abaixo da linha de segurança).\\n"
         texto += f"\\n*Relatório atualizado em tempo real no banco de dados do laboratório.*"

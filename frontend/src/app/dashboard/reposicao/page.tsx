@@ -152,7 +152,7 @@ export default function ReposicaoPage() {
 
   const handleCopyJustificativa = () => {
     const conteudo = textoGemini ||
-      `JUSTIFICATIVA TÉCNICA DE COMPRAS \u2014 STOCKIA\nData: ${new Date().toLocaleDateString("pt-BR")}\n\n${itensProcessados.map(i => `- ${i.nome}: Saldo ${i.saldo_atual} | Mín: ${i.estoque_minimo} | Comprar +${i.sugestao_comprar}`).join("\n")}`;
+      `JUSTIFICATIVA TÉCNICA DE COMPRAS \u2014 LAURUS AI\nData: ${new Date().toLocaleDateString("pt-BR")}\n\n${itensProcessados.map(i => `- ${i.nome}: Saldo ${i.saldo_atual} | Mín: ${i.estoque_minimo} | Comprar +${i.sugestao_comprar}`).join("\n")}`;
     navigator.clipboard.writeText(conteudo);
     showToast("Justificativa copiada para a área de transferência!", "success");
   };

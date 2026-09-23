@@ -7,7 +7,7 @@ import Toast from "@/components/Toast";
 const inter = Inter({ subsets: ["latin"] });
 
 export const metadata: Metadata = {
-  title: "StockIA - Gestão de Laboratório",
+  title: "Laurus AI - Gestão de Laboratório",
   description:
     "Sistema de controle de estoque laboratorial com rastreabilidade e IA preditiva.",
 };

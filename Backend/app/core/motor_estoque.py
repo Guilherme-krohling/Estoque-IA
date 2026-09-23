@@ -1,5 +1,5 @@
 """
-StockIA — Motor de Estoque Determinístico
+Laurus AI — Motor de Estoque Determinístico
 ==========================================
 Calcula cobertura de dias, risco de ruptura e recomendação de compra
 com matemática pura — sem IA generativa. O Gemini só lê os resultados

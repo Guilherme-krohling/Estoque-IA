@@ -1,5 +1,5 @@
 """
-StockIA — Seed de Dados de Demonstração para Banca de TCC
+Laurus AI — Seed de Dados de Demonstração para Banca de TCC
 ===========================================================
 Insere no banco SQLite:
   1. Doenças sazonais com CID-10 e meses de pico
@@ -63,8 +63,8 @@ def get_or_create(model, defaults=None, **kwargs):
 admin, criado = get_or_create(
     Usuario,
     defaults={"senha_hash": hash_senha("Admin@123"), "perfil": "ADMIN", "ativo": True},
-    email="admin@stockia.lab",
-    nome="Administrador StockIA",
+    email="admin@laurus.ai",
+    nome="Administrador Laurus AI",
 )
 if criado:
     print("✅ Usuário admin criado")
@@ -420,7 +420,7 @@ print(f"""
 ║  Movimentações (histórico)     : {total_movs_final:<32} ║
 ╠══════════════════════════════════════════════════════════════════╣
 ║  CREDENCIAIS DO ADMIN DE DEMO                                    ║
-║  Email   : admin@stockia.lab                                     ║
+║  Email   : admin@laurus.ai                                     ║
 ║  Senha   : Admin@123                                             ║
 ╚══════════════════════════════════════════════════════════════════╝
 """)

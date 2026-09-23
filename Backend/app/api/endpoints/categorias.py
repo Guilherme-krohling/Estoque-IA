@@ -1,5 +1,5 @@
 """
-StockIA — Endpoint Categorias
+Laurus AI — Endpoint Categorias
 ================================
 CRUD completo de categorias protegido por JWT.
 """

@@ -34,7 +34,7 @@ export default function Sidebar() {
         {!collapsed && (
           <div className="overflow-hidden">
             <h1 className="font-bold text-white text-lg leading-tight">
-              StockIA
+              Laurus AI
             </h1>
             <p className="text-xs text-slate-400">Gestão Laboratorial</p>
           </div>

@@ -1,5 +1,5 @@
 """
-StockIA — Endpoint Movimentações de Estoque
+Laurus AI — Endpoint Movimentações de Estoque
 ==============================================
 Cada movimentação é registrada com o usuário autenticado (auditoria).
 Tipos: ENTRADA | USO | DESCARTE | AJUSTE

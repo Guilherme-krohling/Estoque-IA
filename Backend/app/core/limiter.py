@@ -1,5 +1,5 @@
 """
-StockIA — Instância Compartilhada do Rate Limiter
+Laurus AI — Instância Compartilhada do Rate Limiter
 ===================================================
 Centraliza o objeto `limiter` em um módulo sem dependências dos endpoints,
 evitando imports circulares entre main.py e os módulos de endpoints.

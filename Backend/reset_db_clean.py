@@ -1,5 +1,5 @@
 """
-StockIA — Recriar Banco SQLite do Zero com Schema Completo
+Laurus AI — Recriar Banco SQLite do Zero com Schema Completo
 ===========================================================
 """
 

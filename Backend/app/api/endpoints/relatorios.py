@@ -1,5 +1,5 @@
 """
-StockIA — Endpoints de Relatórios Operacionais
+Laurus AI — Endpoints de Relatórios Operacionais
 ================================================
 Alimentam os cards do dashboard, telas de Alertas e Reposição.
 """

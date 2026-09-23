@@ -1,5 +1,5 @@
 """
-StockIA — Script de Carga de Dados Epidemiológicos e Alinhamento de Escopo
+Laurus AI — Script de Carga de Dados Epidemiológicos e Alinhamento de Escopo
 ==========================================================================
 1. Atualiza schema do banco SQLite (cria dados_epidemiologicos e colunas de multiplicador).
 2. Limpa doenças fora do escopo (remove VSR, Chikungunya, Zika e duplicatas).

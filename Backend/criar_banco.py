@@ -1,5 +1,5 @@
 """
-StockIA — Script para criar as tabelas no PostgreSQL (sem Alembic)
+Laurus AI — Script para criar as tabelas no PostgreSQL (sem Alembic)
 ===================================================================
 Use apenas como fallback. O Alembic é o método recomendado.
 """

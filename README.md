@@ -1,6 +1,6 @@
-# 🧬 StockIA — Gestão Inteligente de Insumos Laboratoriais com IA Preditiva
+# 🧬 Laurus AI — Gestão Inteligente de Insumos Laboratoriais com IA Preditiva
 
-O **StockIA** é uma plataforma full-stack de **gestão de estoque laboratorial** que integra **Inteligência Artificial preditiva** para antecipar surtos epidemiológicos de **Dengue** e **Influenza**, cruzar automaticamente a previsão de casos com o estoque físico do laboratório e alertar sobre risco de ruptura de insumos diagnósticos.
+O **Laurus AI** é uma plataforma full-stack de **gestão de estoque laboratorial** que integra **Inteligência Artificial preditiva** para antecipar surtos epidemiológicos de **Dengue** e **Influenza**, cruzar automaticamente a previsão de casos com o estoque físico do laboratório e alertar sobre risco de ruptura de insumos diagnósticos.
 
 ---
 
@@ -52,7 +52,7 @@ O **StockIA** é uma plataforma full-stack de **gestão de estoque laboratorial*
 
 ## 🔬 A Regra de Ouro da IA
 
-O coração do StockIA é a **separação entre previsão estatística e cálculo determinístico**:
+O coração do Laurus AI é a **separação entre previsão estatística e cálculo determinístico**:
 
 ```
 1. Prophet prevê a curva de CASOS de doenças (Dengue A90 e Influenza J10)
@@ -137,7 +137,7 @@ Projeto fundamentado no estudo apresentado no **COBRIC 2025** (Congresso de Inic
 > **"O USO DA INTELIGÊNCIA ARTIFICIAL NA GESTÃO DE INSUMOS LABORATORIAIS E PREVISIBILIDADE DE DOENÇAS EM PERÍODOS SAZONAIS"**
 > Curso: Biomedicina
 
-O estudo identificou uma **lacuna na literatura nacional**: modelos de IA para previsão de surtos existem, mas **não se integram aos sistemas de gestão de estoque**. O StockIA preenche essa lacuna.
+O estudo identificou uma **lacuna na literatura nacional**: modelos de IA para previsão de surtos existem, mas **não se integram aos sistemas de gestão de estoque**. O Laurus AI preenche essa lacuna.
 
 ---
 

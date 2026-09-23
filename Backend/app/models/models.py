@@ -1,5 +1,5 @@
 """
-StockIA — Modelos ORM (SQLAlchemy)
+Laurus AI — Modelos ORM (SQLAlchemy)
 ====================================
 7 tabelas principais + 1 tabela associativa (Many-to-Many):
   1. Usuario

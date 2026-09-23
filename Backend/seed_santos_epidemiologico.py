@@ -1,5 +1,5 @@
 """
-StockIA — Seed Preditivo com Sazonalidade de Santos/SP para Prophet
+Laurus AI — Seed Preditivo com Sazonalidade de Santos/SP para Prophet
 ====================================================================
 Gera movimentações de USO diárias nos últimos 90 dias para os materiais
 com padrão de consumo epidemiológico real de Santos/SP (Outono/Inverno).

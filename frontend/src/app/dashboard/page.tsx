@@ -110,7 +110,7 @@ export default function DashboardPage() {
         <p className="text-slate-400 mt-1">Painel de controle do seu laboratório.</p>
       </div>
 
-      {/* Banner Preditivo de IA (StockIA) */}
+      {/* Banner Preditivo de IA (Laurus AI) */}
       <div className="relative overflow-hidden p-6 rounded-2xl bg-gradient-to-r from-slate-900 via-slate-900/90 to-purple-950/40 border border-emerald-500/30 shadow-xl shadow-emerald-950/20">
         <div className="absolute top-0 right-0 w-96 h-96 bg-emerald-500/10 rounded-full blur-3xl -z-10 pointer-events-none" />
 
@@ -121,7 +121,7 @@ export default function DashboardPage() {
             </div>
             <div>
               <div className="flex items-center gap-2">
-                <h2 className="font-bold text-white text-lg">ASSISTENTE PREDITIVO STOCKIA (IA)</h2>
+                <h2 className="font-bold text-white text-lg">ASSISTENTE PREDITIVO LAURUS AI (IA)</h2>
                 <span className="px-2 py-0.5 text-[10px] font-extrabold uppercase bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 rounded-md">
                   IA Preditiva Ativa
                 </span>

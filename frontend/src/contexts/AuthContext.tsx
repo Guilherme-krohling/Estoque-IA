@@ -35,7 +35,7 @@ const AuthContext = createContext<AuthContextType>({
 // Helpers de cookie — permitem que o middleware Edge (middleware.ts)
 // verifique a autenticação antes do React hidratar a página
 // =====================================================================
-const TOKEN_COOKIE = "stockia_token";
+const TOKEN_COOKIE = "laurus_token";
 const TOKEN_EXPIRE_SECONDS = 60 * 60; // 1 hora — mesmo valor do JWT
 
 function setTokenCookie(token: string) {
@@ -60,7 +60,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const token = localStorage.getItem("stockia_token");
+    const token = localStorage.getItem("laurus_token");
     if (token) {
       usuariosApi
         .me()

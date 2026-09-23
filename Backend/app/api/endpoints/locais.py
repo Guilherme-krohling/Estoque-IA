@@ -1,5 +1,5 @@
 """
-StockIA — Endpoint Locais de Armazenamento
+Laurus AI — Endpoint Locais de Armazenamento
 ============================================
 CRUD de depósitos/geladeiras/freezers protegido por JWT.
 """

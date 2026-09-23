@@ -1,5 +1,5 @@
 """
-StockIA — Endpoint Doenças
+Laurus AI — Endpoint Doenças
 ============================
 CRUD de doenças com gerenciamento da relação Many-to-Many com materiais.
 """

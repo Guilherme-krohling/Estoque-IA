@@ -1,6 +1,6 @@
 """
 Script de ETL: Processamento e Consolidação de Dados Epidemiológicos
-StockIA — Baixada Santista e Estado de São Paulo (2021 a 2026)
+Laurus AI — Baixada Santista e Estado de São Paulo (2021 a 2026)
 ===================================================================
 Lê os CSVs brutos do SINAN (Dengue) e SIVEP-Gripe (Influenza)
 e consolida uma série temporal semanal compacta por localidade.
@@ -237,7 +237,7 @@ def main():
     anos = range(2021, 2027)
     
     print("===================================================================")
-    print("Iniciando Consolidação Epidemiológica StockIA (2021 a 2026)")
+    print("Iniciando Consolidação Epidemiológica Laurus AI (2021 a 2026)")
     print("===================================================================")
     
     for ano in anos:

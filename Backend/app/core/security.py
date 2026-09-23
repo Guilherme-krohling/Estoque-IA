@@ -1,5 +1,5 @@
 """
-StockIA — Módulo de Autenticação JWT
+Laurus AI — Módulo de Autenticação JWT
 ======================================
 Hash de senhas com bcrypt + criação/validação de tokens JWT.
 """

@@ -1,5 +1,5 @@
 """
-StockIA — Endpoint Materiais
+Laurus AI — Endpoint Materiais
 ===============================
 CRUD completo do catálogo de materiais protegido por JWT.
 """

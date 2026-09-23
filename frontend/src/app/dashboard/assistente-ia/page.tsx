@@ -19,7 +19,7 @@ export default function AssistenteIAPage() {
     {
       id: "1",
       sender: "ai",
-      text: `Olá, ${user?.nome || "Biomédico(a)"}! 👋 Sou o Assistente de Estoque da StockIA.\n\nEstou conectado ao banco de dados do laboratório e aos modelos preditivos em tempo real para te dar respostas imediatas sobre validades, reposição e surtos epidemiológicos.\n\nComo posso ajudar hoje?`,
+      text: `Olá, ${user?.nome || "Biomédico(a)"}! 👋 Sou o Assistente de Estoque da Laurus AI.\n\nEstou conectado ao banco de dados do laboratório e aos modelos preditivos em tempo real para te dar respostas imediatas sobre validades, reposição e surtos epidemiológicos.\n\nComo posso ajudar hoje?`,
       timestamp: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
       badge: "Dados em Tempo Real",
     },
@@ -66,7 +66,7 @@ export default function AssistenteIAPage() {
           sender: "ai",
           text: res.resposta,
           timestamp: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
-          badge: "StockIA Core",
+          badge: "Laurus AI Core",
         };
         setMessages((prev) => [...prev, aiMsg]);
       })
@@ -109,7 +109,7 @@ export default function AssistenteIAPage() {
           </div>
           <div>
             <div className="flex items-center gap-2">
-              <h1 className="text-xl font-bold text-white">Assistente Biomédico StockIA</h1>
+              <h1 className="text-xl font-bold text-white">Assistente Biomédico Laurus AI</h1>
               <span className="px-2.5 py-0.5 text-[10px] font-extrabold uppercase bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 rounded-full">
                 Dados em Tempo Real
               </span>
@@ -151,7 +151,7 @@ export default function AssistenteIAPage() {
           >
             <div className="flex items-center gap-2 mb-1">
               <span className="text-xs text-slate-400 font-semibold">
-                {msg.sender === "user" ? user?.nome || "Você" : "StockIA Assistente"}
+                {msg.sender === "user" ? user?.nome || "Você" : "Laurus AI Assistente"}
               </span>
               {msg.badge && (
                 <span className="text-[9px] px-2 py-0.5 bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 rounded-md font-mono">
@@ -180,7 +180,7 @@ export default function AssistenteIAPage() {
         {isTyping && (
           <div className="flex flex-col items-start">
             <div className="flex items-center gap-2 mb-1">
-              <span className="text-xs text-slate-400 font-semibold">StockIA Assistente</span>
+              <span className="text-xs text-slate-400 font-semibold">Laurus AI Assistente</span>
               <span className="text-[10px] text-emerald-400 font-mono animate-pulse">Consultando Banco SQL + RAG...</span>
             </div>
             <div className="p-4 bg-slate-900/90 border border-slate-800 rounded-2xl rounded-bl-none flex items-center gap-2 text-slate-400 text-xs">

@@ -1,5 +1,5 @@
 """
-StockIA — Guarda de Segurança da IA (Circuit Breaker + Sanitização)
+Laurus AI — Guarda de Segurança da IA (Circuit Breaker + Sanitização)
 ====================================================================
 Protege contra:
   - Estouro de cota/custo da API do Gemini (circuit breaker global)
