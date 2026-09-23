@@ -29,6 +29,8 @@ materiais_doencas = Table(
     Base.metadata,
     Column("material_id", Integer, ForeignKey("materiais.id", ondelete="CASCADE"), primary_key=True),
     Column("doenca_id", Integer, ForeignKey("doencas.id", ondelete="CASCADE"), primary_key=True),
+    Column("quantidade_por_exame", Float, default=1.0, nullable=False),
+    Column("unidade_por_exame", String(20), default="un", nullable=True),
 )
 
 
@@ -197,3 +199,31 @@ class Doenca(Base):
 
     # Relacionamento Many-to-Many com Materiais
     materiais = relationship("Material", secondary=materiais_doencas, back_populates="doencas")
+
+
+# =====================================================================
+# 8. DADOS EPIDEMIOLOGICOS (Séries Temporais SINAN / SIVEP-Gripe / InfoDengue)
+# =====================================================================
+class DadoEpidemiologico(Base):
+    __tablename__ = "dados_epidemiologicos"
+
+    id = Column(Integer, primary_key=True, index=True)
+    doenca_id = Column(Integer, ForeignKey("doencas.id"), nullable=True, index=True)
+    doenca_nome = Column(String(50), nullable=False, index=True)  # "Dengue" | "Influenza"
+    localidade = Column(String(100), nullable=False, index=True)  # "Santos", "Baixada Santista", "Estado de São Paulo", etc.
+    ano = Column(Integer, nullable=False, index=True)
+    semana_epidemiologica = Column(Integer, nullable=False, index=True)
+    semana_ano = Column(String(10), nullable=False, index=True)   # ex: "202410"
+    data_inicio_semana = Column(Date, nullable=False, index=True) # Data do primeiro dia da semana
+    casos_notificados = Column(Integer, default=0, nullable=False)
+    casos_confirmados = Column(Integer, default=0, nullable=False)
+    casos_fem = Column(Integer, default=0, nullable=False)
+    casos_masc = Column(Integer, default=0, nullable=False)
+    casos_0_19 = Column(Integer, default=0, nullable=False)
+    casos_20_59 = Column(Integer, default=0, nullable=False)
+    casos_60_mais = Column(Integer, default=0, nullable=False)
+    fonte = Column(String(50), default="DATASUS", nullable=False)
+    criado_em = Column(DateTime, default=func.now())
+
+    # Relacionamento
+    doenca = relationship("Doenca")

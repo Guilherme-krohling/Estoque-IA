@@ -1,204 +1,176 @@
-# StockIA — Gestão Inteligente de Insumos Laboratoriais
+# 🧬 StockIA — Gestão Inteligente de Insumos Laboratoriais com IA Preditiva
 
-O **StockIA** é um sistema completo de gestão de estoque laboratorial projetado para integrar a administração diária de insumos de diagnóstico e pesquisa médica com recursos de **Inteligência Artificial (IA)** para previsão de demanda baseada em picos epidemiológicos e doenças sazonais.
+O **StockIA** é uma plataforma full-stack de **gestão de estoque laboratorial** que integra **Inteligência Artificial preditiva** para antecipar surtos epidemiológicos de **Dengue** e **Influenza**, cruzar automaticamente a previsão de casos com o estoque físico do laboratório e alertar sobre risco de ruptura de insumos diagnósticos.
 
 ---
 
-## 1. Contexto e Origem Científica
+## 🎯 O que o sistema faz?
 
-O projeto é diretamente fundamentado no estudo científico apresentado no **COBRIC 2025** (*Congresso de Iniciação Científica da Universidade Santa Cecília - Unisanta*), intitulado:
+1. **Prevê surtos epidemiológicos** usando o modelo **Prophet** (Meta) treinado em dados reais do DATASUS/SINAN, com horizonte de 4 a 20 semanas.
+2. **Cruza automaticamente** a previsão de casos com o estoque físico: `Demanda = Casos Previstos × quantidade_por_exame × 1.20 (margem 20%)`.
+3. **Alerta sobre risco de ruptura**: identifica quais materiais terão déficit frente ao pico epidemiológico.
+4. **Gera justificativas técnicas de compra** via Google Gemini, prontas para o setor de suprimentos.
+5. **Gerencia o estoque laboratorial completo**: materiais, lotes (FEFO), movimentações rastreáveis e auditoria ANVISA.
+
+---
+
+## 🏗️ Arquitetura
+
+```
+┌─────────────────────────────────────────────────────────────────┐
+│  Frontend: Next.js 16 + TailwindCSS + TypeScript + Recharts    │
+│  (Dashboard interativo com gráficos preditivos)                │
+└──────────────────────┬──────────────────────────────────────────┘
+                       │ HTTP/JSON (JWT)
+┌──────────────────────▼──────────────────────────────────────────┐
+│  Backend: FastAPI + Python 3 + SQLAlchemy + Prophet             │
+│  (Motor preditivo epidemiológico + Motor de estoque)            │
+└──────────────────────┬──────────────────────────────────────────┘
+                       │ ORM
+┌──────────────────────▼──────────────────────────────────────────┐
+│  Banco de Dados: SQLite (dev) / PostgreSQL (prod)               │
+│  + Tabela dados_epidemiologicos (15M+ registros processados)    │
+└─────────────────────────────────────────────────────────────────┘
+```
+
+---
+
+## 📱 Telas do Sistema
+
+| Tela | Descrição | Usa IA? |
+|------|-----------|---------|
+| **Dashboard** | Visão geral com indicadores de estoque, alertas ativos e link rápido para previsão epidemiológica | ❌ Dados diretos do banco |
+| **Estoque** | CRUD completo de materiais e lotes com controle FEFO, validade, classe de risco e cadeia de frio | ❌ Gestão operacional |
+| **Reposição** | Sugestões de compra baseadas em estoque mínimo + geração de justificativa técnica via Gemini | ✅ **Gemini 1.5 Flash** |
+| **Alertas** | Vencimentos, estoque crítico + previsão de surtos via Prophet com impacto por material | ✅ **Prophet** |
+| **Previsão Epidemiológica** | Gráfico interativo de comportamento e previsão de casos, filtros por doença/localidade/período, cruzamento automático com estoque | ✅ **Prophet** |
+| **Assistente IA** | Chatbot com respostas sobre estoque e biossegurança (simulado — fase futura: Gemini + RAG) | 🔜 Planejado |
+| **Auditoria** | Rastreabilidade completa de movimentações (ANVISA RDC 302/2005) | ❌ Logs do banco |
+| **Configurações** | Gestão de usuários, perfis e preferências | ❌ Administração |
+
+---
+
+## 🔬 A Regra de Ouro da IA
+
+O coração do StockIA é a **separação entre previsão estatística e cálculo determinístico**:
+
+```
+1. Prophet prevê a curva de CASOS de doenças (Dengue A90 e Influenza J10)
+   → Treinado em dados reais do DATASUS/SINAN (2021-2026)
+   → Região: Estado de SP + Baixada Santista (7 localidades)
+
+2. A demanda de materiais é derivada deterministicamente:
+   Demanda = Casos Previstos × quantidade_por_exame × 1.20
+
+3. O saldo físico atual é cruzado para classificar risco:
+   CRÍTICO  → saldo < demanda projetada (ruptura iminente)
+   ATENÇÃO  → saldo < demanda × 1.5
+   SEGURO   → saldo plenamente dimensionado
+```
+
+O modelo de linguagem (Gemini) **nunca calcula saldos ou quantidades**. Ele apenas traduz os resultados do motor de estoque em justificativas técnicas formais.
+
+---
+
+## 📊 Fontes de Dados Epidemiológicos
+
+| Fonte | Dados | Cobertura |
+|-------|-------|-----------|
+| **DATASUS / SINAN** | Notificações de Dengue (CID A90) | 2021–2026, Estado de SP |
+| **DATASUS / SIVEP-Gripe** | Notificações de Influenza (CID J10) | 2021–2026, Estado de SP |
+| **InfoDengue (Fiocruz)** | Dados semanais complementares | Baixada Santista |
+
+Os dados brutos foram processados via ETL (15M+ linhas) e armazenados na tabela `dados_epidemiologicos` do banco, agregados por semana epidemiológica, localidade, faixa etária e sexo.
+
+---
+
+## 🚀 Como Executar
+
+### Backend (FastAPI)
+
+```bash
+cd Backend
+python -m venv .venv
+.venv\Scripts\activate        # Windows
+pip install -r requirements.txt
+python criar_banco.py
+python seed_categorias.py
+python seed_demo_ia.py         # Popula dados epidemiológicos e vínculos
+uvicorn app.main:app --reload
+```
+
+> API disponível em http://localhost:8000 | Docs em http://localhost:8000/docs
+
+### Frontend (Next.js)
+
+```bash
+cd frontend
+npm install
+npm run dev
+```
+
+> Abra no navegador: http://localhost:3000
+
+---
+
+## 🧪 Modelo de Dados
+
+O banco possui **10 tabelas principais**:
+
+- **`usuarios`** — Profissionais do laboratório (Admin, Gestor, Técnico, Pesquisador)
+- **`fornecedores`** — Cadastro com CNPJ
+- **`categorias`** — Classificação de materiais (Reagentes PCR, Vidrarias, etc.)
+- **`locais_armazenamento`** — Depósitos com tipo (refrigerado, congelado, ambiente, inflamáveis)
+- **`materiais`** — Catálogo com classe de risco, cadeia de frio, estoque mínimo/máximo
+- **`lotes`** — Estoque físico real com validade (FEFO), quantidade atualizada por trigger
+- **`movimentacoes_estoque`** — Trilha de auditoria imutável (entrada, uso, descarte, ajuste, transferência)
+- **`doencas`** — Dengue e Influenza com CID-10, sazonalidade e meses de pico
+- **`materiais_doencas`** — Vínculo N:N com multiplicador `quantidade_por_exame`
+- **`dados_epidemiologicos`** — Série temporal semanal por localidade, faixa etária e sexo
+
+---
+
+## 📚 Contexto Científico
+
+Projeto fundamentado no estudo apresentado no **COBRIC 2025** (Congresso de Iniciação Científica — Unisanta):
 
 > **"O USO DA INTELIGÊNCIA ARTIFICIAL NA GESTÃO DE INSUMOS LABORATORIAIS E PREVISIBILIDADE DE DOENÇAS EM PERÍODOS SAZONAIS"**
-> * Curso: Biomedicina.
+> Curso: Biomedicina
 
-### O Problema Identificado
-As doenças sazonais — como a **Influenza** (gripe comum no outono/inverno), **Dengue, Chikungunya e Zika** (picos em períodos chuvosos e quentes) e o **Vírus Sincicial Respiratório (RSV)** (afetando crianças nos meses frios) — causam impactos epidemiológicos e econômicos bilionários no **Sistema Único de Saúde (SUS)**. 
-
-Esses surtos geram uma **demanda intermitente e abrupta por insumos laboratoriais específicos** (kits de extração, reagentes, testes rápidos de antígeno e PCR). Sem previsão, os laboratórios públicos enfrentam dois grandes gargalos:
-1. **Desabastecimento**: Falta de insumos diagnósticos durante o pico epidêmico, impedindo o tratamento precoce.
-2. **Desperdício (Superfaturamento/Vencimento)**: Compra emergencial excessiva de insumos que acabam vencendo no estoque devido à falta de controle de validade e fim do ciclo sazonal.
-
-### A Solução Proposta
-O estudo dos pesquisadores revelou uma **lacuna na literatura nacional**: embora existam modelos de IA eficientes para previsão de surtos (como redes neurais recorrentes **LSTM**), eles **não se integram aos sistemas operacionais de gestão de estoque**. 
-
-O **StockIA** nasceu para preencher essa lacuna, integrando uma ferramenta robusta de gestão de inventário laboratorial a um módulo de inteligência de demanda.
+O estudo identificou uma **lacuna na literatura nacional**: modelos de IA para previsão de surtos existem, mas **não se integram aos sistemas de gestão de estoque**. O StockIA preenche essa lacuna.
 
 ---
 
-## 2. Para que Serve o Sistema?
+## 📁 Estrutura do Projeto
 
-O StockIA tem como principais objetivos:
-* **Garantir o Abastecimento Inteligente**: Prever picos de demanda de exames diagnósticos com antecedência de 4 a 12 semanas (usando dados epidemiológicos e climáticos), sugerindo compras automáticas de insumos associados a determinadas doenças.
-* **Controlar Validade e Perdas (Metodologia FEFO)**: Gerenciar os lotes de reagentes priorizando a saída do que vence primeiro (*First Expired, First Out*).
-* **Rastreabilidade e Compliance**: Registrar de forma imutável todas as entradas, saídas, descartes e ajustes de estoque para auditorias regulatórias (**RDC nº 302/2005** e **nº 330/2019 da ANVISA**, ISO e Boas Práticas de Laboratório - GLP).
-* **Prevenir Riscos e Controlar Condições**: Monitorar faixas de temperatura de armazenamento (cadeia de frio) e classes de risco dos materiais (biológico, químico, inflamável).
-
----
-
-## 3. Como Funciona a Arquitetura do Sistema?
-
-O sistema é construído sobre uma arquitetura moderna dividida em duas camadas principais (**Full-Stack**):
-
-```mermaid
-graph TD
-    A[Frontend: Next.js + TailwindCSS + TS] -->|Requisições HTTP / JSON / JWT| B[Backend: FastAPI + Python]
-    B -->|ORM SQLAlchemy| C[(Banco de Dados: SQLite / PostgreSQL)]
-    B -.->|Fases Futuras| D[Modelos de IA / LSTM / RAG]
+```
+Prj-Lab/
+├── Backend/                  # API FastAPI + Motor preditivo Prophet
+│   ├── app/
+│   │   ├── api/endpoints/    # Rotas REST (ia.py, estoque, auth, etc.)
+│   │   ├── core/             # previsao_epidemiologica.py (Prophet + cruzamento)
+│   │   ├── models/           # SQLAlchemy models
+│   │   └── services/         # Lógica de negócio
+│   ├── alembic/              # Migrações do banco
+│   └── requirements.txt
+├── frontend/                 # Next.js 16 + TailwindCSS + Recharts
+│   └── src/
+│       ├── app/dashboard/    # Todas as telas do painel
+│       ├── components/       # Sidebar, Toast, etc.
+│       ├── contexts/         # AuthContext (JWT)
+│       └── lib/api.ts        # Cliente HTTP com interceptors
+└── .gitignore
 ```
 
-### 3.1. O Backend (`/Backend`)
-Desenvolvido em **Python 3**, utilizando um ecossistema focado em alto desempenho e segurança:
-* **FastAPI**: Framework assíncrono moderno e de alto desempenho para expor as rotas RESTful. Gera a documentação automática do sistema via Swagger UI (`/docs`).
-* **Uvicorn**: Servidor ASGI que atua como o motor de execução da API local.
-* **SQLAlchemy**: ORM (*Object-Relational Mapping*) para gerenciar a persistência de dados em nível de código Python de forma independente do SGBD.
-* **Alembic**: Ferramenta de versionamento e migrações do banco de dados, permitindo evolução segura do esquema.
-* **Bancos de Dados Suportados**: SQLite (`stockai.db` para desenvolvimento rápido e testes locais) ou PostgreSQL (gerenciado via contêineres Docker para produção).
-
-### 3.2. O Frontend (`/frontend`)
-Uma aplicação rica e interativa desenvolvida em **React** e **Next.js** (App Router) com **TypeScript**:
-* **Painel Administrativo Completo**: Interface intuitiva e com estética premium baseada em *Glassmorphism* (efeitos de transparência fosca e gradientes modernos).
-* **Controle de Sessão**: Autenticação de usuários baseada em tokens **JWT** (*JSON Web Tokens*) com persistência de estado.
-* **Módulos Principais do Dashboard**:
-  * **Inventário de Materiais**: Catálogo completo dos insumos e reagentes.
-  * **Controle de Lotes**: Visualização de quantidades físicas e datas de validade por lote.
-  * **Auditoria (Movimentações)**: Rastreabilidade total de quem movimentou o quê, quando e o motivo.
-  * **Fornecedores**: Gestão de dados dos fornecedores e fabricantes.
-
 ---
 
-## 4. O Modelo de Dados (As Entidades)
+## ⚙️ Tecnologias
 
-O banco de dados do **StockIA** é estruturado em **8 tabelas principais** + 1 associativa, projetadas para responder a todas as regras de controle de qualidade laboratorial e alimentar a camada de IA preditiva:
-
-```mermaid
-erDiagram
-    USUARIO ||--o{ MOVIMENTACAO_ESTOQUE : realiza
-    FORNECEDOR ||--o{ MATERIAL : fornece
-    FORNECEDOR ||--o{ LOTE : entrega
-    CATEGORIA ||--o{ MATERIAL : categoriza
-    MATERIAL ||--o{ LOTE : possui
-    LOCAL_ARMAZENAMENTO ||--o{ LOTE : armazena
-    LOTE ||--o{ MOVIMENTACAO_ESTOQUE : registra
-    LOCAL_ARMAZENAMENTO ||--o{ MOVIMENTACAO_ESTOQUE : "origem/destino"
-    MATERIAL }|..|{ DOENCA : "associa-se-a (qtd_por_exame)"
-```
-
-1. **Usuário (`Usuario`)**: Representa os profissionais que operam o sistema. Possui perfis de acesso restritos:
-   * `ADMIN`: Controle total de configurações e usuários.
-   * `GESTOR`: Focado em relatórios, estoque geral e compras.
-   * `PESQUISADOR` / `TECNICO`: Realiza movimentações de uso do dia a dia.
-2. **Fornecedor (`Fornecedor`)**: Cadastro de fornecedores com CNPJ (armazenado sem máscara — só dígitos), contato e e-mail.
-3. **Categoria (`Categoria`)**: Classificação dos materiais (ex: Reagentes de PCR, Vidrarias, Placas de Petri, Meios de Cultura).
-4. **Local de Armazenamento (`LocalArmazenamento`)**: Onde o estoque físico fica guardado. Suporta múltiplos depósitos/geladeiras/freezers:
-   * `tipo`: `REFRIGERADO`, `CONGELADO`, `AMBIENTE`, `INFLAMAVEIS`.
-   * Leitura opcional de **temperatura atual** (integração futura com sensores IoT).
-5. **Material (`Material`)**: O catálogo de produtos do laboratório. Armazena especificações críticas:
-   * Fabricante e código no catálogo.
-   * **Classe de risco**: (Ex: Biológico, Químico, Inflamável).
-   * **Controle de Cadeia de Frio**: Campo booleano `exige_refrigeracao` e limites exatos de temperatura mínima e máxima de armazenamento.
-   * **Unidade de medida canônica** (`unidade_medida` e `fator_conversao`): toda movimentação é registrada na unidade base do material (ex: "ml"), evitando confusão entre "caixa" e "unidade".
-   * **`estoque_minimo`**: gatilho automático de alerta de ressuprimento. Núcleo do controle preventivo *antes* da IA entrar em cena.
-   * **`estoque_maximo`** (opcional): teto para evitar compras emergenciais excessivas que acabam virando descarte por vencimento.
-6. **Lote (`Lote`)**: O estoque físico real. Um material pode ter vários lotes ativos em locais diferentes. Controla:
-   * Data de fabricação e **data de validade** (crítico para a metodologia FEFO).
-   * Quantidade física atual (atualizada via *trigger* a cada movimentação, garantindo consistência atômica).
-   * `local_id`: em qual depósito/geladeira o lote físico está hoje.
-   * Arquivo ou link do *Certificado de Análise* do lote.
-7. **Movimentação de Estoque (`MovimentacaoEstoque`)**: A trilha de auditoria digital. Toda alteração de estoque gera um registro **imutável** indicando:
-   * O lote afetado e o usuário responsável.
-   * **Tipo de Movimentação**:
-     * `ENTRADA` (compra/recebimento)
-     * `USO` (consumo na rotina de exames)
-     * `DESCARTE` (por vencimento ou avaria)
-     * `AJUSTE` (correção manual após inventário)
-     * `TRANSFERENCIA` (movimentação entre `local_origem_id` e `local_destino_id`)
-   * `estorno_de_id`: referência opcional para outra movimentação que está sendo anulada — preserva o histórico para auditoria ANVISA (nunca deletamos um lançamento errado, criamos um estorno).
-   * `quantidade > 0` é garantida por *check constraint*; o sinal (soma ou subtrai) vem do `tipo`.
-8. **Doença (`Doenca`)**: Catálogo de patologias epidemiológicas que vão alimentar a previsão sazonal:
-   * `cid_codigo`: código CID-10 (ex: `A90` para Dengue).
-   * `sazonalidade`: classificação (`VERAO_CHUVOSO`, `INVERNO`, `ANO_TODO`).
-   * `meses_pico`: meses históricos de surto (ex: `"1,2,3"` para jan-mar) — entra direto como sazonalidade customizada no Prophet.
-   * `regiao_endemica`: recorte geográfico (`SUDESTE`, `NORDESTE`, etc).
-9. **Associação Material ↔ Doença (`materiais_doencas`)**: relação N:N enriquecida com `quantidade_media_por_exame` — é o multiplicador que converte "previsão de N casos de dengue" em "previsão de N × qtd_por_exame ml de reagente necessário".
-
-> **Nota de design — saldo de lote:** o campo `lotes.quantidade_atual` é desnormalizado (cache do saldo). A consistência é garantida por *trigger* PostgreSQL que recalcula o saldo a cada `INSERT` em `movimentacoes_estoque`. Em ambiente SQLite (dev), a mesma lógica é aplicada na camada de serviço dentro de transação. Isso torna a consulta FEFO ("qual lote desse material vence primeiro e ainda tem saldo?") instantânea sem precisar agregar todo o histórico.
-
----
-
-## 5. Como Executar o Projeto Localmente
-
-### 5.1. Rodando o Backend (FastAPI)
-
-1. Entre na pasta `/Backend`:
-   ```bash
-   cd Backend
-   ```
-2. Crie e ative um ambiente virtual do Python:
-   ```bash
-   python -m venv .venv
-   # No Windows:
-   .venv\Scripts\activate
-   ```
-3. Instale as dependências listadas no arquivo `info.txt`:
-   ```bash
-   pip install fastapi uvicorn sqlalchemy alembic psycopg2-binary python-dotenv
-   ```
-4. Se necessário, inicialize o banco de dados SQLite executando o script de criação:
-   ```bash
-   python criar_banco.py
-   python seed_categorias.py
-   ```
-5. Inicie o servidor FastAPI:
-   ```bash
-   uvicorn app.main:app --reload
-   ```
-6. O backend estará acessível em: [http://localhost:8000](http://localhost:8000). Você pode acessar a documentação interativa em [http://localhost:8000/docs](http://localhost:8000/docs).
-
-### 5.2. Rodando o Frontend (Next.js)
-
-1. Entre na pasta `/frontend`:
-   ```bash
-   cd frontend
-   ```
-2. Instale as dependências:
-   ```bash
-   npm install
-   ```
-3. Inicie o servidor de desenvolvimento:
-   ```bash
-   npm run dev
-   ```
-4. Abra o **Firefox** (conforme regras globais do usuário) e acesse: [http://localhost:3000](http://localhost:3000).
-
----
-
-## 6. Planejamento da Inteligência Artificial
-
-> **Especificação Oficial:** Para os detalhes técnicos completos da IA, consulte a documentação oficial em [stockia-ai-corrigido.md](file:///d:/projetos/Prj-Lab/anotacoes/stockia-ai-corrigido.md).
-
-O ecossistema inteligente de previsão está planejado para a **Fase 3** do projeto. A arquitetura é dividida em **três componentes bem definidos** para garantir máxima precisão e zero risco de alucinação:
-
-### 6.1. IA Preditiva — Prophet (Sazonalidade) + XGBoost (Demanda) vs. Baseline
-O motor preditivo utiliza algoritmos estatísticos e de aprendizado de máquina treinados sobre o histórico de movimentações e dados epidemiológicos:
-* **Previsão Epidemiológica:** **Prophet** (com sazonalidade anual e regressores regionais) comparado diretamente contra um *baseline* simples (média móvel) para validação via métricas MAE/RMSE.
-* **Previsão de Demanda:** **XGBoost / Gradient Boosting** para relacionar o histórico real de consumo de insumos sem utilizar multiplicadores arbitrários.
-
-### 6.2. Motor de Estoque Determinístico
-Camada de regras de negócio em Python/FastAPI que calcula matematicamente:
-* **Cobertura de Estoque em Dias**: `saldo_disponivel / consumo_diario_previsto`.
-* **Risco de Ruptura**: Comparação da cobertura com o **Lead Time** do fornecedor.
-* **Quantidade Recomendada a Comprar**: Cálculo determinístico considerando saldo, estoque de segurança, validade FEFO e pedidos de compra que já estão em aberto.
-
-### 6.3. IA Generativa — Gemini como Tradutor Explicativo
-Um modelo de linguagem (**Google Gemini 1.5 Flash**) é acionado pontualmente para transformar os dados estruturados do motor de estoque em linguagem natural biomédica:
-* **Gerador de Justificativa Técnica de Compras:** Na tela de Reposição (`/dashboard/reposicao`), o Gemini compõe pareceres formais prontos para envio ao setor de compras.
-* **Regra de Ouro:** O LLM **nunca** calcula saldos, coberturas ou quantidades a comprar. A matemática vem 100% do motor de estoque.
-
-### 6.4. Escopo do MVP vs. Evolução Futura
-
-| Fase | Recursos de IA | Telas Atendidas |
-|---|---|---|
-| **Fase 3 (MVP)** | Previsão Epidemiológica, Motor de Estoque Determinístico e Justificativas Técnicas via Gemini | `/dashboard`, `/dashboard/alertas` e `/dashboard/reposicao` |
-| **Fase 4 (Futuro)** | Leitura de FISPQ via **RAG** (*Retrieval-Augmented Generation*) com vetorização de PDFs ABNT NBR 14725 | `/dashboard/estoque` |
-| **Fase 5 (Futuro)** | Assistente Biomédico conversacional especializado em linguagem natural | `/dashboard/assistente-ia` |
-
+| Camada | Tecnologia |
+|--------|-----------|
+| Frontend | Next.js 16, React 19, TypeScript, TailwindCSS, Recharts |
+| Backend | Python 3, FastAPI, Uvicorn, SQLAlchemy, Alembic |
+| IA Preditiva | Prophet (Meta) — séries temporais com sazonalidade anual |
+| IA Generativa | Google Gemini 1.5 Flash — justificativas técnicas |
+| Banco de Dados | SQLite (dev) / PostgreSQL (prod) |
+| Autenticação | JWT (JSON Web Tokens) |

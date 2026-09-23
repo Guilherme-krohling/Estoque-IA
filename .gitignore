@@ -1,6 +1,22 @@
-# Anotações e relatórios locais
+# =============================================
+# StockIA — .gitignore
+# =============================================
+
+# Anotações pessoais e planejamento local
 anotacoes/
 futuro/
+
+# Dados brutos epidemiológicos (CSV / DATASUS / InfoDengue)
+dados 2021/
+dados 2022/
+dados 2023/
+dados 2024/
+dados 2025/
+dados 2026/
+dados infodengue/
+
+# PDFs e documentos não-código
+*.pdf
 
 # Python / Environments
 __pycache__/
@@ -11,6 +27,12 @@ env/
 venv/
 *.db
 *.sqlite3
+
+# Arquivo de dependências local (substituído por requirements.txt)
+Backend/info.txt
+
+# Pyright / Type checker config local
+pyrightconfig.json
 
 # Node / Next.js
 node_modules/

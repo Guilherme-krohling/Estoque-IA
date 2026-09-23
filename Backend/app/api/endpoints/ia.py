@@ -19,7 +19,11 @@ from sqlalchemy.orm import Session
 
 from app.db.database import get_db
 from app.core.motor_estoque import calcular_cobertura, calcular_cobertura_todos
-from app.core.previsao_epidemiologica import prever_demanda_material, prever_demanda_todos
+from app.core.previsao_epidemiologica import (
+    prever_demanda_material,
+    prever_demanda_todos,
+    prever_casos_epidemiologicos,
+)
 from app.core.ai_guard import check_ai_quota
 from app.core.security import get_current_user
 from app.core.limiter import limiter
@@ -220,3 +224,154 @@ JUSTIFICATIVA:"""
         )
 
     return {"texto": texto, "materiais_analisados": len(coberturas)}
+
+
+# =====================================================================
+# ENDPOINT 6 — Previsão Epidemiológica Completa (Tela Nova)
+# =====================================================================
+@router.get("/previsao-epidemiologica", summary="Previsão epidemiológica por doença e localidade")
+def obter_previsao_epidemiologica(
+    doenca: str = Query("Dengue", description="Dengue | Influenza | Ambas"),
+    localidades: str = Query("Santos", description="Localidades separadas por vírgula"),
+    horizonte_semanas: int = Query(8, ge=4, le=20, description="Próximas X semanas (4 a 20)"),
+    periodo_historico_meses: int = Query(24, description="12 | 24 | 36 meses"),
+    modo: str = Query("ampliado", description="ampliado (todos os notificados) | conservador (confirmados)"),
+    faixa_etaria: str = Query("todas", description="todas | 0-19 | 20-59 | 60+"),
+    sexo: str = Query("todos", description="todos | F | M"),
+    db: Session = Depends(get_db),
+    _user: Usuario = Depends(get_current_user),
+):
+    """
+    Retorna a análise e projeção epidemiológica via Prophet, indicadores,
+    série temporal para gráfico, panorama textual e potencial impacto laboratorial.
+    """
+    try:
+        loc_list = [l.strip() for l in localidades.split(",") if l.strip()]
+        if not loc_list:
+            loc_list = ["Santos"]
+
+        resultado = prever_casos_epidemiologicos(
+            doenca_nome=doenca,
+            localidades=loc_list,
+            horizonte_semanas=horizonte_semanas,
+            periodo_historico_meses=periodo_historico_meses,
+            modo=modo,
+            faixa_etaria=faixa_etaria,
+            sexo=sexo,
+            db=db,
+        )
+        return resultado
+    except Exception as exc:
+        logger.error("Erro ao gerar previsão epidemiológica: %s", exc)
+        raise HTTPException(
+            status_code=500,
+            detail=f"Erro ao processar modelo epidemiológico: {str(exc)}"
+        )
+
+
+# =====================================================================
+# ENDPOINT 7 — Cruzamento Direto de Insumos com Estoque
+# =====================================================================
+@router.get("/cruzamento", summary="Cruzamento de demanda epidemiológica com estoque físico")
+def obter_cruzamento_estoque(
+    doenca: str = Query("Dengue", description="Dengue | Influenza | Ambas"),
+    localidades: str = Query("Santos", description="Localidades separadas por vírgula"),
+    horizonte_semanas: int = Query(8, ge=4, le=20),
+    modo: str = Query("ampliado"),
+    db: Session = Depends(get_db),
+    _user: Usuario = Depends(get_current_user),
+):
+    """
+    Retorna o cruzamento detalhado entre a demanda projetada pela curva
+    epidemiológica e os saldos em estoque dos lotes ativos (FEFO).
+    """
+    try:
+        loc_list = [l.strip() for l in localidades.split(",") if l.strip()]
+        resultado = prever_casos_epidemiologicos(
+            doenca_nome=doenca,
+            localidades=loc_list or ["Santos"],
+            horizonte_semanas=horizonte_semanas,
+            modo=modo,
+            db=db,
+        )
+        return {
+            "doenca": doenca,
+            "localidades": loc_list,
+            "horizonte_semanas": horizonte_semanas,
+            "modo": modo,
+            "casos_previstos": resultado["indicadores"]["casos_previstos"],
+            "impacto_materiais": resultado["impacto_demanda"]["materiais"],
+        }
+    except Exception as exc:
+        logger.error("Erro no cruzamento epidemiológico: %s", exc)
+        raise HTTPException(status_code=500, detail=f"Erro no cruzamento: {str(exc)}")
+
+
+# =====================================================================
+# ENDPOINT 6 — Consulta Assistente Dinâmico (Sem LLM / Dados Reais)
+# =====================================================================
+class ConsultaAssistenteRequest(BaseModel):
+    mensagem: str
+
+@router.post("/assistente/consulta", summary="Respostas dinâmicas baseadas em regras e dados reais")
+def consulta_assistente(
+    body: ConsultaAssistenteRequest,
+    db: Session = Depends(get_db),
+    _user: Usuario = Depends(get_current_user),
+):
+    """
+    Recebe a pergunta do usuário, identifica o tema e retorna dados formatados
+    diretamente do banco de dados (Substitui as respostas estáticas).
+    """
+    mensagem = body.mensagem.lower()
+    
+    if "vencer" in mensagem or "30 dias" in mensagem or "validade" in mensagem:
+        from datetime import date, timedelta
+        limite = date.today() + timedelta(days=30)
+        from app.models.models import Lote, Material
+        lotes_vencendo = db.query(Lote).join(Material).filter(
+            Lote.data_validade <= limite,
+            Lote.data_validade >= date.today(),
+            Lote.quantidade_atual > 0
+        ).order_by(Lote.data_validade.asc()).all()
+        
+        if not lotes_vencendo:
+            return {"resposta": "Excelente notícia! Não há lotes com vencimento previsto para os próximos 30 dias com saldo em estoque."}
+            
+        texto = f"Encontrei {len(lotes_vencendo)} lote(s) com atenção exigida nos próximos 30 dias:\\n\\n"
+        for lote in lotes_vencendo:
+            dias = (lote.data_validade - date.today()).days
+            texto += f"• **{lote.material.nome}**\\n  - Lote: {lote.numero_lote} (Saldo: {float(lote.quantidade_atual)} {lote.material.unidade_medida})\\n  - Vence em {dias} dias.\\n\\n"
+        texto += "**Recomendação Biomédica:** Priorizar o consumo imediato destes lotes no método PEPS."
+        return {"resposta": texto}
+        
+    elif "outono" in mensagem or "doenç" in mensagem or "pico" in mensagem or "epidemiolog" in mensagem:
+        res_influenza = prever_casos_epidemiologicos("Influenza", ["Santos"], db=db)
+        res_dengue = prever_casos_epidemiologicos("Dengue", ["Santos"], db=db)
+        
+        pico_inf = res_influenza["indicadores"].get("pico_semana", "N/A")
+        pico_inf_data = res_influenza["indicadores"].get("pico_data", "N/A")
+        pico_den = res_dengue["indicadores"].get("pico_semana", "N/A")
+        
+        texto = "Analisando as previsões epidemiológicas (Prophet) para a região:\\n\\n"
+        texto += f"1. **Influenza A/B (J10):** Tendência {res_influenza['indicadores'].get('tendencia')}. Pico esperado na semana {pico_inf} ({pico_inf_data}).\\n"
+        texto += f"2. **Dengue (A90):** Tendência {res_dengue['indicadores'].get('tendencia')}. Pico esperado na semana {pico_den}.\\n\\n"
+        texto += "**Recomendação:** Acompanhe a aba Previsão Epidemiológica para cruzar as informações com as datas reais de validade dos kits diagnósticos associados."
+        return {"resposta": texto}
+        
+    elif "brometo" in mensagem or "biossegurança" in mensagem or "fispq" in mensagem:
+        return {"resposta": "🛡️ **Ficha de Biossegurança Padrão ANVISA (RDC 302/2005)**\\n\\n• **Exemplo - Brometo de Etídio:** Agente Mutagênico (Grupo B).\\n• **EPIs Obrigatórios:** Luvas duplas de nitrilo, óculos de segurança contra respingos, capela de exaustão química.\\n\\n• **Derramamento:** Isolar, absorver a seco, descontaminar (KMnO4 + HCl diluído) e descartar no Grupo B.\\n\\n*Nota: O acesso a PDFs FISPQ vetoriais estará disponível em versão futura (RAG).*"}
+        
+    elif "resumo" in mensagem or "diretoria" in mensagem or "executivo" in mensagem:
+        from app.models.models import Material, Lote
+        from sqlalchemy import func
+        total_materiais = db.query(func.count(Material.id)).filter(Material.ativo == True).scalar()
+        criticos = calcular_cobertura_todos(db, apenas_criticos=True)
+        texto = f"📊 **RESUMO EXECUTIVO DO ESTOQUE STOCKIA**\\n\\n"
+        texto += f"• **Total de Itens Monitorados:** {total_materiais} materiais cadastrados ativos.\\n"
+        texto += f"• **Status da Reposição:** {len(criticos)} materiais identificados como nível CRÍTICO (Abaixo da linha de segurança).\\n"
+        texto += f"\\n*Relatório atualizado em tempo real no banco de dados do laboratório.*"
+        return {"resposta": texto}
+        
+    else:
+        return {"resposta": f"Com base nos dados atuais do seu estoque:\\n\\nPara **\\\"{body.mensagem}\\\"**, recomendo verificar a aba de Reposição ou Estoque.\\n\\nExperimente perguntar sobre vencimentos em 30 dias, resumo para diretoria, picos epidemiológicos ou procedimentos FISPQ de biossegurança."}

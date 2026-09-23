@@ -168,8 +168,14 @@ export default function DashboardPage() {
               onClick={() => setShowDetailsModal(true)}
               className="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-semibold rounded-xl border border-slate-700 transition-all flex items-center gap-2"
             >
-              📄 Ver Detalhes Epidemiológicos
+              📄 Detalhes Rápidos
             </button>
+            <Link
+              href="/dashboard/previsao-epidemiologica"
+              className="px-4 py-2 bg-slate-800/90 hover:bg-slate-700 text-cyan-300 hover:text-cyan-200 text-xs font-semibold rounded-xl border border-cyan-500/30 transition-all flex items-center gap-2"
+            >
+              📈 Painel Epidemiológico Completo
+            </Link>
           </div>
         </div>
       </div>
@@ -194,12 +200,11 @@ export default function DashboardPage() {
             <div className="space-y-4 text-sm text-slate-300">
               <div className="bg-slate-800/60 p-4 rounded-xl border border-slate-700/60 space-y-2">
                 <p className="font-semibold text-emerald-400 flex items-center gap-2">
-                  <span>🦠</span> Doenças com Pico Histórico Mapeado (Outono/Inverno):
+                  <span>🦠</span> Doenças Monitoradas (Escopo Oficial):
                 </p>
                 <ul className="list-disc list-inside text-xs text-slate-300 space-y-1 pl-2">
-                  <li><strong>Influenza A/B (CID-10 J10/J11):</strong> Projeção de aumento de 35% na demanda por RT-PCR.</li>
-                  <li><strong>Vírus Sincicial Respiratório (VSR - CID-10 B97.4):</strong> Pico nas primeiras 6 semanas do outono.</li>
-                  <li><strong>Dengue Tipo 1/2 (CID-10 A90):</strong> Monitoramento residual de sorologia.</li>
+                  <li><strong>Influenza A/B (CID-10 J10):</strong> Vigilância de surtos sazonais com impacto direto em swabs, VTM, ponteiras e PCR.</li>
+                  <li><strong>Dengue (Sorotipos 1 a 4 - CID-10 A90):</strong> Vigilância preditiva de casos com impacto em cassetes rápidos NS1 e reagentes.</li>
                 </ul>
               </div>
 

@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import Link from "next/link";
 import { relatoriosApi, iaApi } from "@/lib/api";
 
 export default function AlertasPage() {
@@ -32,9 +33,9 @@ export default function AlertasPage() {
     iaApi
       .previsaoGeral()
       .then((dados) => {
-        // Filtra materiais com risco ALTO ou MODERADO (exibe todos os alertas reais)
+        // Filtra materiais com risco ALTO ou MODERADO e consumo > 0 (Ajuste 2 - dupla segurança)
         const relevantes = dados.filter(
-          (d: any) => d.risco_surto === "ALTO" || d.risco_surto === "MODERADO"
+          (d: any) => (d.risco_surto === "ALTO" || d.risco_surto === "MODERADO") && d.consumo_previsto_total > 0
         );
         setPrevisoes(relevantes);
         setIaDisponivel(true);
@@ -179,7 +180,9 @@ export default function AlertasPage() {
                     {p.consumo_previsto_total.toFixed(1)} {p.unidade_medida} em {p.horizonte_dias} dias
                   </p>
                   <div className={`text-[11px] font-medium px-2 py-1 rounded border ${corRisco.barra}`}>
-                    Base: {p.consumo_baseline_diario.toFixed(2)}/dia → Previsto: {p.consumo_previsto_diario.toFixed(2)}/dia
+                    {p.consumo_previsto_diario === 0 
+                      ? "Sem atividade prevista no horizonte"
+                      : `Base: ${p.consumo_baseline_diario.toFixed(2)}/dia → Previsto: ${p.consumo_previsto_diario.toFixed(2)}/dia`}
                   </div>
                 </div>
               );
@@ -193,42 +196,31 @@ export default function AlertasPage() {
           </div>
         ) : (
           // — Fallback quando Prophet não tem dados ou endpoint indisponível —
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 pt-1">
-            {/* Surto 1 — estático de demonstração */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pt-1">
+            {/* Surto 1: Influenza */}
             <div className="p-4 bg-slate-900/80 rounded-xl border border-slate-800 space-y-2 hover:border-purple-500/40 transition-colors">
               <div className="flex justify-between items-center">
-                <span className="text-xs font-bold text-amber-400 bg-amber-500/10 px-2 py-0.5 rounded border border-amber-500/20">CID-10 J10</span>
-                <span className="text-[11px] text-slate-400 font-medium">Pico em ~3 semanas</span>
+                <span className="text-xs font-bold text-purple-400 bg-purple-500/10 px-2 py-0.5 rounded border border-purple-500/20">CID-10 J10</span>
+                <span className="text-[11px] text-slate-400 font-medium">Sazonalidade Regional</span>
               </div>
               <h3 className="font-semibold text-white text-sm">Influenza A/B (Gripe Sazonal)</h3>
-              <p className="text-xs text-slate-400"><strong className="text-slate-300">Insumos Críticos:</strong> Tampão PCR 10X, Kit Swab Nasofaríngeo.</p>
-              <div className="text-[11px] text-emerald-400 font-medium bg-emerald-500/10 px-2 py-1 rounded border border-emerald-500/20">
-                💡 Dados de demonstração (histórico insuficiente)
-              </div>
+              <p className="text-xs text-slate-400"><strong className="text-slate-300">Insumos Críticos:</strong> Swabs, Kits RT-PCR, Tubos VTM, Ponteiras.</p>
+              <Link href="/dashboard/previsao-epidemiologica" className="inline-block text-[11px] text-purple-400 hover:text-purple-300 font-semibold pt-1">
+                Ver projeção completa de casos e estoque →
+              </Link>
             </div>
-            {/* Surto 2 — estático de demonstração */}
-            <div className="p-4 bg-slate-900/80 rounded-xl border border-slate-800 space-y-2 hover:border-purple-500/40 transition-colors">
-              <div className="flex justify-between items-center">
-                <span className="text-xs font-bold text-rose-400 bg-rose-500/10 px-2 py-0.5 rounded border border-rose-500/20">CID-10 B97.4</span>
-                <span className="text-[11px] text-slate-400 font-medium">Pico em ~2 semanas</span>
-              </div>
-              <h3 className="font-semibold text-white text-sm">Vírus Sincicial Respiratório (VSR)</h3>
-              <p className="text-xs text-slate-400"><strong className="text-slate-300">Insumos Críticos:</strong> Meios de Transporte Viral (VTM).</p>
-              <div className="text-[11px] text-amber-400 font-medium bg-amber-500/10 px-2 py-1 rounded border border-amber-500/20">
-                ⚠️ Dados de demonstração (histórico insuficiente)
-              </div>
-            </div>
-            {/* Surto 3 — estático de demonstração */}
-            <div className="p-4 bg-slate-900/80 rounded-xl border border-slate-800 space-y-2 hover:border-purple-500/40 transition-colors">
+
+            {/* Surto 2: Dengue */}
+            <div className="p-4 bg-slate-900/80 rounded-xl border border-slate-800 space-y-2 hover:border-cyan-500/40 transition-colors">
               <div className="flex justify-between items-center">
                 <span className="text-xs font-bold text-cyan-400 bg-cyan-500/10 px-2 py-0.5 rounded border border-cyan-500/20">CID-10 A90</span>
-                <span className="text-[11px] text-slate-400 font-medium">Pico em ~6 semanas</span>
+                <span className="text-[11px] text-slate-400 font-medium">Sazonalidade Regional</span>
               </div>
-              <h3 className="font-semibold text-white text-sm">Dengue Sorotipos 1/2</h3>
-              <p className="text-xs text-slate-400"><strong className="text-slate-300">Insumos Críticos:</strong> Cassetes Sorológicos NS1 / IgG-IgM.</p>
-              <div className="text-[11px] text-slate-500 font-medium bg-slate-800/60 px-2 py-1 rounded border border-slate-700">
-                📊 Dados de demonstração (histórico insuficiente)
-              </div>
+              <h3 className="font-semibold text-white text-sm">Dengue (Sorotipos 1 a 4)</h3>
+              <p className="text-xs text-slate-400"><strong className="text-slate-300">Insumos Críticos:</strong> Cassetes Sorológicos NS1, Kits RT-PCR Dengue, Reagentes.</p>
+              <Link href="/dashboard/previsao-epidemiologica" className="inline-block text-[11px] text-cyan-400 hover:text-cyan-300 font-semibold pt-1">
+                Ver projeção completa de casos e estoque →
+              </Link>
             </div>
           </div>
         )}

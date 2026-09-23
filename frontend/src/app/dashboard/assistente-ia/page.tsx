@@ -3,6 +3,7 @@
 import { useState, useRef, useEffect } from "react";
 import { useAuth } from "@/contexts/AuthContext";
 import { showToast } from "@/components/Toast";
+import { iaApi } from "@/lib/api";
 
 interface Message {
   id: string;
@@ -18,9 +19,9 @@ export default function AssistenteIAPage() {
     {
       id: "1",
       sender: "ai",
-      text: `Olá, ${user?.nome || "Biomédico(a)"}! 👋 Sou o Assistente Biomédico da StockIA.\n\nFui treinado com as diretrizes da ANVISA, normas FISPQ e integrado ao banco de dados do seu laboratório em tempo real via RAG (Retrieval-Augmented Generation).\n\nComo posso ajudar na sua gestão de estoque ou biossegurança hoje?`,
+      text: `Olá, ${user?.nome || "Biomédico(a)"}! 👋 Sou o Assistente de Estoque da StockIA.\n\nEstou conectado ao banco de dados do laboratório e aos modelos preditivos em tempo real para te dar respostas imediatas sobre validades, reposição e surtos epidemiológicos.\n\nComo posso ajudar hoje?`,
       timestamp: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
-      badge: "Gemini 1.5 Flash + RAG",
+      badge: "Dados em Tempo Real",
     },
   ]);
   const [input, setInput] = useState("");
@@ -57,34 +58,32 @@ export default function AssistenteIAPage() {
     if (!textToSend) setInput("");
     setIsTyping(true);
 
-    // Respostas simuladas inteligentes baseadas nos prompts biomédicos
-    setTimeout(() => {
-      let responseText = "";
-
-      const lower = query.toLowerCase();
-      if (lower.includes("vencer") || lower.includes("30 dias") || lower.includes("validade")) {
-        responseText = `Encontrei 2 lotes críticos com atenção exigida nos próximos 30 dias:\n\n• **Caldo Nutritivo para Hemocultura (Cód. CLD-HEM-12)**\n  - Lote: LT-2026-006 (Saldo: 3 frascos)\n  - Data de Validade: Vence em 8 dias.\n\n• **Reagente Tampão PCR 10X (Cód. TPR-10X)**\n  - Lote: LT-2026-014 (Saldo: 2 frascos)\n  - Data de Validade: Vence em 22 dias.\n\n**Recomendação Biomédica:** Priorizar o consumo imediato destes lotes no método PEPS (Primeiro que Expira, Primeiro que Sai) ou emitir ordem de descarte preventivo caso apresentem turbidez.`;
-      } else if (lower.includes("outono") || lower.includes("doenç") || lower.includes("pico") || lower.includes("epidemiolog")) {
-        responseText = `Para o **Outono na Região Sudeste**, identifiquei pico histórico para:\n\n1. **Influenza A/B (CID-10 J10):** Projeção de alta de 35% nos exames moleculares.\n2. **Vírus Sincicial Respiratório - VSR (CID-10 B97.4):** Alta demanda de amostras pediátricas.\n\n**Insumos em Risco:**\n• *Reagente Tampão PCR 10X* (Saldo atual: 2 frascos | Estoque mín: 10 frascos).\n• *Sugestão de Compra:* Adquirir +20 frascos com o fornecedor Bioclin antes de 05 de Março.`;
-      } else if (lower.includes("brometo") || lower.includes("biossegurança") || lower.includes("fispq") || lower.includes("vazamento")) {
-        responseText = `🛡️ **Ficha de Biossegurança — Brometo de Etídio (C14H18BrN3)**\n\n• **Classe de Risco:** Agente Mutagênico / Carcinogênico (Grupo B - ANVISA).\n• **EPIs Obrigatórios:** Luvas duplas de nitrilo, óculos de segurança contra respingos, avental impermeável e capela de exaustão química.\n\n• **Procedimento em Caso de Derramamento:**\n  1. Isolar a área imediatamente.\n  2. Absorver com vermiculita ou papel absorvente seco.\n  3. Descontaminar o local com solução de permanganato de potássio (KMnO4) e ácido clorídrico (HCl) diluído.\n  4. Descartar os resíduos em recipiente rígido para resíduos perigosos Grupo B.`;
-      } else if (lower.includes("resumo") || lower.includes("diretoria") || lower.includes("executivo")) {
-        responseText = `📊 **RESUMO EXECUTIVO DO ESTOQUE STOCKIA**\n\n• **Total de Itens Monitorados:** 10 Materiais Base em 15 Lotes Ativos.\n• **Status da Reposição:** 2 Itens em nível crítico (Abaixo do estoque mínimo).\n• **Conformidade de Validade:** 93.3% do estoque dentro do prazo de validade.\n• **Investimento Estimado de Reposição:** R$ 3.450,00 para suporte ao ciclo de outono.\n\n*Relatório gerado automaticamente por StockIA em ${new Date().toLocaleDateString("pt-BR")}.*`;
-      } else {
-        responseText = `Com base nos dados atuais do seu estoque e nas especificações técnicas dos materiais:\n\nAnalisando o histórico de solicitações e movimentações para **"${query}"**, recomendo verificar a aba de **Reposição** ou conferir os parâmetros de estoque mínimo cadastrados.\n\nSe precisar de detalhes de segurança ANVISA (Grupo B) ou previsão epidemiológica por CID-10, estou à disposição!`;
-      }
-
-      const aiMsg: Message = {
-        id: (Date.now() + 1).toString(),
-        sender: "ai",
-        text: responseText,
-        timestamp: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
-        badge: "Gemini 1.5 Flash + RAG",
-      };
-
-      setMessages((prev) => [...prev, aiMsg]);
-      setIsTyping(false);
-    }, 1000);
+    // Chamada real para a API do Assistente (Ajuste 1)
+    iaApi.assistenteConsulta({ mensagem: query })
+      .then((res) => {
+        const aiMsg: Message = {
+          id: (Date.now() + 1).toString(),
+          sender: "ai",
+          text: res.resposta,
+          timestamp: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
+          badge: "StockIA Core",
+        };
+        setMessages((prev) => [...prev, aiMsg]);
+      })
+      .catch((err) => {
+        const errMsg: Message = {
+          id: (Date.now() + 1).toString(),
+          sender: "ai",
+          text: "Desculpe, não consegui me conectar ao banco de dados no momento. Tente novamente mais tarde.",
+          timestamp: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
+          badge: "Erro de Conexão",
+        };
+        setMessages((prev) => [...prev, errMsg]);
+        showToast(err.message || "Erro de conexão", "error");
+      })
+      .finally(() => {
+        setIsTyping(false);
+      });
   };
 
   const handleClearChat = () => {
@@ -94,7 +93,7 @@ export default function AssistenteIAPage() {
         sender: "ai",
         text: "Conversa reiniciada. Como posso auxiliar com o estoque biomédico agora?",
         timestamp: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
-        badge: "Gemini 1.5 Flash + RAG",
+        badge: "Dados em Tempo Real",
       },
     ]);
     showToast("Histórico do chat limpo.");
@@ -112,11 +111,11 @@ export default function AssistenteIAPage() {
             <div className="flex items-center gap-2">
               <h1 className="text-xl font-bold text-white">Assistente Biomédico StockIA</h1>
               <span className="px-2.5 py-0.5 text-[10px] font-extrabold uppercase bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 rounded-full">
-                Chatbot & RAG
+                Dados em Tempo Real
               </span>
             </div>
             <p className="text-xs text-slate-400">
-              Perguntas livres sobre estoque, FISPQ/ANVISA e previsões epidemiológicas.
+              Perguntas rápidas sobre validades, estoques e previsões epidemiológicas.
             </p>
           </div>
         </div>

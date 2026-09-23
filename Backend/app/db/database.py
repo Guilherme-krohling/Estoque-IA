@@ -16,7 +16,13 @@ db_url = os.getenv("DATABASE_URL")
 if not db_url:
     raise ValueError("ERRO CRÍTICO: Variável DATABASE_URL não encontrada no arquivo .env!")
 
-print(f"Conexao com o Banco de Dados configurada ({db_url.split('@')[-1] if '@' in db_url else 'local'})")
+# Se for SQLite relativo, resolve para o diretório Backend de forma absoluta
+if "sqlite" in db_url and ("./" in db_url or not os.path.isabs(db_url.replace("sqlite:///", ""))):
+    backend_dir = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+    db_file = os.path.join(backend_dir, "stockai.db").replace("\\", "/")
+    db_url = f"sqlite:///{db_file}"
+
+print(f"Conexao com o Banco de Dados configurada ({db_url.split('@')[-1] if '@' in db_url else db_url})")
 
 # Cria o motor de conexão (suporta SQLite local e PostgreSQL)
 connect_args = {"check_same_thread": False} if "sqlite" in db_url else {}

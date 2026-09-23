@@ -130,40 +130,9 @@ doencas_data = [
         "descricao": (
             "Infecção respiratória aguda causada pelos vírus Influenza A e B. "
             "Meses de pico no Brasil: Abril, Maio, Junho e Julho (outono/inverno). "
-            "Principal causa de pandemia respiratória anual. "
-            "Insumos principais: Swab Nasofaríngeo, Tampão PCR 10X, Kit RT-PCR Influenza A/B. "
+            "Principal causa de epidemia respiratória sazonal. "
+            "Insumos principais: Swab Nasofaríngeo, Meio VTM, Tampão PCR 10X, Kit RT-PCR Influenza A/B. "
             "Quantidade média por exame: 1 swab + 1 reação de PCR por paciente."
-        ),
-    },
-    {
-        "nome": "Vírus Sincicial Respiratório (VSR)",
-        "cid_codigo": "B97.4",
-        "descricao": (
-            "Principal causa de bronquiolite e pneumonia em lactentes. Altamente sazonal. "
-            "Meses de pico no Brasil: Março, Abril e Maio. Risco elevado em crianças < 2 anos e imunodeprimidos. "
-            "Insumos principais: Meio de Transporte Viral (VTM), Kit RT-PCR VSR, Ponteiras 200uL c/ filtro. "
-            "Quantidade média por exame: 1 VTM + 2 reações por paciente (duplicata de segurança)."
-        ),
-    },
-    {
-        "nome": "Chikungunya",
-        "cid_codigo": "A92.0",
-        "descricao": (
-            "Arbovirose transmitida pelo Aedes aegypti e Aedes albopictus. "
-            "Meses de pico no Brasil: Janeiro a Abril (coincide com Dengue e Zika). "
-            "Caracterizada por artralgia intensa e febre. Diagnóstico por RT-PCR ou Sorologia IgM. "
-            "Insumos principais: Kit RT-PCR Chikungunya, Tubos Vacutainer EDTA. "
-            "Quantidade média por exame: 1 reação de PCR."
-        ),
-    },
-    {
-        "nome": "Zika Vírus",
-        "cid_codigo": "A92.5",
-        "descricao": (
-            "Arbovirose do gênero Flavivirus, transmitida pelo Aedes aegypti. "
-            "Meses de pico: Janeiro a Abril (período chuvoso). Associado à microcefalia congênita. "
-            "Insumos principais: Kit RT-PCR Zika, Ponteiras 10uL para carga viral. "
-            "Quantidade média por exame: 1 reação de PCR; gestantes requerem confirmação em duplicata."
         ),
     },
 ]
@@ -190,7 +159,7 @@ materiais_data = [
         "exige_refrigeracao": True, "temperatura_min": 2.0, "temperatura_max": 8.0,
         "unidade_medida": "ml", "estoque_minimo": 100, "estoque_maximo": 500,
         "local": local_geo,
-        "doencas_cid": ["J10", "B97.4"],
+        "doencas_cid": ["J10", "A90"],
         "lotes": [
             {"numero": "BCL-2026-001", "validade": date(2027, 6, 30), "saldo_inicial": 180},
         ],
@@ -235,7 +204,7 @@ materiais_data = [
         "exige_refrigeracao": True, "temperatura_min": 2.0, "temperatura_max": 8.0,
         "unidade_medida": "un", "estoque_minimo": 50, "estoque_maximo": 400,
         "local": local_geo,
-        "doencas_cid": ["B97.4", "J10", "A92.5"],
+        "doencas_cid": ["J10"],
         "lotes": [
             {"numero": "LBC-2026-044", "validade": date(2027, 9, 30), "saldo_inicial": 120},
         ],
@@ -250,7 +219,7 @@ materiais_data = [
         "exige_refrigeracao": True, "temperatura_min": 2.0, "temperatura_max": 8.0,
         "unidade_medida": "kit", "estoque_minimo": 3, "estoque_maximo": 15,
         "local": local_geo,
-        "doencas_cid": ["A90", "J10", "B97.4", "A92.0", "A92.5"],
+        "doencas_cid": ["A90", "J10"],
         "lotes": [
             {"numero": "QIA-2026-089", "validade": date(2027, 8, 15), "saldo_inicial": 6},
         ],
@@ -265,7 +234,7 @@ materiais_data = [
         "exige_refrigeracao": False,
         "unidade_medida": "caixa", "estoque_minimo": 5, "estoque_maximo": 50,
         "local": local_amb,
-        "doencas_cid": ["A90", "J10", "B97.4", "A92.0", "A92.5"],
+        "doencas_cid": ["A90", "J10"],
         "lotes": [
             {"numero": "LBC-2026-PT200-01", "validade": date(2028, 12, 31), "saldo_inicial": 9},
         ],
@@ -280,7 +249,7 @@ materiais_data = [
         "exige_refrigeracao": False,
         "unidade_medida": "un", "estoque_minimo": 60, "estoque_maximo": 500,
         "local": local_amb,
-        "doencas_cid": ["J10", "B97.4"],
+        "doencas_cid": ["J10"],
         "lotes": [
             {"numero": "LBC-2026-SWB-33", "validade": date(2028, 6, 30), "saldo_inicial": 150},
         ],

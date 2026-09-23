@@ -61,7 +61,11 @@ def _resultado_vazio(material_id: int, motivo: str) -> dict:
 # =====================================================================
 # FUNÇÃO PRINCIPAL
 # =====================================================================
-def calcular_cobertura(material_id: int, db: Session) -> dict:
+def calcular_cobertura(
+    material_id: int,
+    db: Session,
+    consumo_diario_projetado: Optional[float] = None,
+) -> dict:
     """
     Calcula todos os indicadores de estoque para um material.
 
@@ -140,16 +144,22 @@ def calcular_cobertura(material_id: int, db: Session) -> dict:
         .scalar()
     ) or 1  # evita divisão por zero
 
-    consumo_diario_medio = round(total_consumido / max(dias_com_movimento, 1), 4)
+    if consumo_diario_projetado is not None and consumo_diario_projetado > 0:
+        consumo_diario_medio = round(float(consumo_diario_projetado), 4)
+        origem_consumo = "PROJECAO_EPIDEMIOLOGICA"
+    else:
+        consumo_diario_medio = round(total_consumido / max(dias_com_movimento, 1), 4)
+        origem_consumo = "HISTORICO_USO"
 
     if consumo_diario_medio < 0.0001:
         return {
-            **_resultado_vazio(material_id, "Consumo histórico insuficiente (< 0.0001/dia). Aguarde mais dados."),
+            **_resultado_vazio(material_id, "Consumo histórico ou projetado insuficiente (< 0.0001/dia). Aguarde mais dados."),
             "nome": material.nome,
             "saldo_atual": saldo_atual,
             "unidade_medida": material.unidade_medida,
             "estoque_minimo": float(material.estoque_minimo or 0),
             "lotes_ativos": lotes_info,
+            "origem_consumo": origem_consumo,
         }
 
     # --- 4. Lead time do fornecedor ---

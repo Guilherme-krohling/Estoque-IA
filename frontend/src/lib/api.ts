@@ -247,4 +247,48 @@ export const iaApi = {
       method: "POST",
       body: JSON.stringify(body),
     }),
+
+  /** GET /api/ia/previsao-epidemiologica — previsão semanal Prophet por doença e localidade */
+  previsaoEpidemiologica: (params: {
+    doenca?: string;
+    localidades?: string;
+    horizonte_semanas?: number;
+    periodo_historico_meses?: number;
+    modo?: string;
+    faixa_etaria?: string;
+    sexo?: string;
+  } = {}) => {
+    const query = new URLSearchParams();
+    if (params.doenca) query.set("doenca", params.doenca);
+    if (params.localidades) query.set("localidades", params.localidades);
+    if (params.horizonte_semanas) query.set("horizonte_semanas", String(params.horizonte_semanas));
+    if (params.periodo_historico_meses) query.set("periodo_historico_meses", String(params.periodo_historico_meses));
+    if (params.modo) query.set("modo", params.modo);
+    if (params.faixa_etaria) query.set("faixa_etaria", params.faixa_etaria);
+    if (params.sexo) query.set("sexo", params.sexo);
+    return fetchApi<any>(`/ia/previsao-epidemiologica?${query.toString()}`);
+  },
+
+  /** GET /api/ia/cruzamento — cruzamento direto de casos com estoque */
+  cruzamentoEstoque: (params: {
+    doenca?: string;
+    localidades?: string;
+    horizonte_semanas?: number;
+    modo?: string;
+  } = {}) => {
+    const query = new URLSearchParams();
+    if (params.doenca) query.set("doenca", params.doenca);
+    if (params.localidades) query.set("localidades", params.localidades);
+    if (params.horizonte_semanas) query.set("horizonte_semanas", String(params.horizonte_semanas));
+    if (params.modo) query.set("modo", params.modo);
+    return fetchApi<any>(`/ia/cruzamento?${query.toString()}`);
+  },
+
+  /** POST /api/ia/assistente/consulta — consulta guiada sem LLM */
+  assistenteConsulta: (data: { mensagem: string }) =>
+    fetchApi<any>("/ia/assistente/consulta", {
+      method: "POST",
+      body: JSON.stringify(data),
+    }),
 };
+
