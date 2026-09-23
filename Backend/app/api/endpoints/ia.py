@@ -191,7 +191,8 @@ INSTRUÇÕES:
 - Use linguagem técnica e formal (adequada para documentos oficiais de compras hospitalares)
 - Mencione o risco de ruptura de estoque e o impacto na continuidade do diagnóstico laboratorial
 - Cite os números de cobertura e lead time de forma objetiva
-- Seja direto, sem introduções longas. Máximo 250 palavras.
+- Seja direto, sem introduções longas. Entre 200 e 400 palavras.
+- IMPORTANTE: Conclua o texto com um parágrafo final de encerramento. Nunca deixe o texto incompleto.
 - Escreva em português do Brasil.
 
 JUSTIFICATIVA:"""
@@ -202,15 +203,15 @@ JUSTIFICATIVA:"""
 
         client = google_genai.Client(api_key=api_key)
         response = client.models.generate_content(
-            model="gemini-3.6-flash",  # modelo atual disponível nesta conta API
+            model="gemini-2.0-flash",  # modelo estável e disponível em contas gratuitas
             contents=prompt,
             config={
-                "max_output_tokens": 1500,  # Limita custo de tokens
+                "max_output_tokens": 2048,  # margem confortável para texto completo
                 "temperature": 0.3,         # Mais factual, menos criativo
             },
         )
         texto = response.text.strip()
-        logger.info("Gemini 2.5-flash chamado com sucesso para %d materiais.", len(coberturas))
+        logger.info("Gemini 2.0-flash chamado com sucesso para %d materiais.", len(coberturas))
     except ImportError:
         raise HTTPException(
             status_code=503,
