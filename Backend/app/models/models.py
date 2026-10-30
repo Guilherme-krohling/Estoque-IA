@@ -202,7 +202,7 @@ class Doenca(Base):
 
 
 # =====================================================================
-# 8. DADOS EPIDEMIOLOGICOS (Séries Temporais SINAN / SIVEP-Gripe / InfoDengue)
+# 8. DADOS EPIDEMIOLOGICOS (Séries Temporais SINAN / DATASUS)
 # =====================================================================
 class DadoEpidemiologico(Base):
     __tablename__ = "dados_epidemiologicos"

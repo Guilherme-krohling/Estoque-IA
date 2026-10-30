@@ -5,22 +5,31 @@ Previsão de Casos Epidemiológicos (Dengue e Influenza) via Prophet (Meta)
 e conversão determinística em demanda projetada de materiais laboratoriais.
 
 A REGRA DE OURO DO LAURUS AI:
-  1. Prophet prevê a curva de CASOS de doenças (Dengue A90 e Influenza J10).
+  1. Prophet prevê a curva de CASOS de doenças (Dengue A90 e Influenza J10) com base no SINAN.
   2. A demanda de materiais é derivada:
      Demanda = Casos Previstos × quantidade_por_exame × 1.20 (20% margem).
   3. O saldo físico atual é cruzado para identificar risco de ruptura.
 """
 
-import time
+import calendar
 import logging
 from datetime import datetime, timedelta, date
 from typing import Optional, List, Dict, Any
 from collections import defaultdict
 
+import numpy as np
+import pandas as pd
 from sqlalchemy.orm import Session
 from sqlalchemy import func, text
 
-from app.models.models import Material, Lote, MovimentacaoEstoque, Doenca, DadoEpidemiologico, materiais_doencas
+from app.models.models import (
+    Material,
+    Lote,
+    MovimentacaoEstoque,
+    Doenca,
+    DadoEpidemiologico,
+    materiais_doencas,
+)
 
 logger = logging.getLogger("stockia.ia")
 
@@ -31,8 +40,37 @@ _CACHE_TIMESTAMP = 0.0
 _CACHE_TTL_SEGUNDOS = 300  # 5 minutos
 
 
+def _parse_data_inicio(valor: Optional[str]) -> Optional[date]:
+    """Converte 'YYYY-MM' ou 'YYYY-MM-DD' para date no primeiro dia do mês."""
+    if not valor:
+        return None
+    valor = valor.strip()
+    try:
+        if len(valor) == 7:  # YYYY-MM
+            ano, mes = map(int, valor.split("-"))
+            return date(ano, mes, 1)
+        return date.fromisoformat(valor[:10])
+    except Exception:
+        return None
+
+
+def _parse_data_fim(valor: Optional[str]) -> Optional[date]:
+    """Converte 'YYYY-MM' ou 'YYYY-MM-DD' para date no último dia do mês."""
+    if not valor:
+        return None
+    valor = valor.strip()
+    try:
+        if len(valor) == 7:  # YYYY-MM
+            ano, mes = map(int, valor.split("-"))
+            ultimo_dia = calendar.monthrange(ano, mes)[1]
+            return date(ano, mes, ultimo_dia)
+        return date.fromisoformat(valor[:10])
+    except Exception:
+        return None
+
+
 # =====================================================================
-# 1. PREVISÃO EPIDEMIOLÓGICA DE CASOS (PROPHET)
+# 1. PREVISÃO EPIDEMIOLÓGICA DE CASOS (PROPHET — FONTE UNIFICADA SINAN)
 # =====================================================================
 def prever_casos_epidemiologicos(
     doenca_nome: str,
@@ -42,75 +80,162 @@ def prever_casos_epidemiologicos(
     modo: str = "ampliado",
     faixa_etaria: Optional[str] = "todas",
     sexo: Optional[str] = "todos",
+    data_inicio: Optional[str] = None,
+    data_fim: Optional[str] = None,
     db: Optional[Session] = None,
 ) -> Dict[str, Any]:
     """
-    Treina o modelo Prophet sobre a série temporal histórica de CASOS
+    Treina o modelo Prophet sobre a série temporal histórica de CASOS (SINAN)
     da(s) doença(s) e localidade(s) selecionadas e gera projeções semanais.
+    Suporta combinação proporcional de filtros (modo, faixa_etaria, sexo) e
+    recorte temporal exato (data_inicio a data_fim) sem degradar o treino sazonal.
     """
     if db is None:
         raise ValueError("Sessão de banco de dados db é obrigatória.")
 
     doencas_alvo = ["Dengue", "Influenza"] if doenca_nome == "Ambas" else [doenca_nome]
-    
+
     # Valida localidades
     if not localidades:
         localidades = ["Santos"]
 
-    # Data de corte histórico
-    data_corte = date.today() - timedelta(days=periodo_historico_meses * 30)
+    # Descobre a maior data disponível no banco para as doenças e localidades selecionadas
+    max_data_banco = (
+        db.query(func.max(DadoEpidemiologico.data_inicio_semana))
+        .filter(
+            DadoEpidemiologico.doenca_nome.in_(doencas_alvo),
+            DadoEpidemiologico.localidade.in_(localidades),
+        )
+        .scalar()
+    )
+    if not max_data_banco:
+        return _resultado_epidemiologico_vazio(doenca_nome, localidades, horizonte_semanas)
 
-    resultados_doencas = {}
-    
-    import pandas as pd
+    # Determina intervalo visual solicitado pelo usuário
+    dt_fim = _parse_data_fim(data_fim) or max_data_banco
+    if dt_fim > max_data_banco:
+        dt_fim = max_data_banco
+
+    dt_inicio = _parse_data_inicio(data_inicio)
+    if not dt_inicio:
+        dt_inicio = dt_fim - timedelta(days=periodo_historico_meses * 30)
+
+    if dt_inicio > dt_fim:
+        dt_inicio = dt_fim - timedelta(days=180)
+
+    # Para o treino do Prophet com sazonalidade anual (yearly_seasonality=True),
+    # garantimos pelo menos 36 meses (~1095 dias) de histórico antes de dt_fim
+    # para que o modelo aprenda múltiplos ciclos sazonais completos e nunca fique sub-identificado.
+    dt_treino_inicio = min(dt_inicio, dt_fim - timedelta(days=1095))
+
     from prophet import Prophet
-    import logging
     logging.getLogger("prophet").setLevel(logging.ERROR)
     logging.getLogger("cmdstanpy").setLevel(logging.ERROR)
 
+    # Quando "Ambas" está selecionado, alinhamos a última data observada comum
+    # para que Dengue e Influenza iniciem o período previsto exatamente na mesma semana.
+    limite_comum_obs: Optional[date] = None
+    if len(doencas_alvo) > 1:
+        max_por_doenca = []
+        for doe in doencas_alvo:
+            m_doe = (
+                db.query(func.max(DadoEpidemiologico.data_inicio_semana))
+                .filter(
+                    DadoEpidemiologico.doenca_nome == doe,
+                    DadoEpidemiologico.localidade.in_(localidades),
+                    DadoEpidemiologico.data_inicio_semana <= dt_fim,
+                )
+                .scalar()
+            )
+            if m_doe:
+                max_por_doenca.append(m_doe)
+        if max_por_doenca:
+            limite_comum_obs = min(max_por_doenca)
+
+    resultados_doencas = {}
+
     for doe in doencas_alvo:
-        # Busca histórico agregado no banco
-        query = db.query(
-            DadoEpidemiologico.data_inicio_semana,
-            DadoEpidemiologico.semana_ano,
-            func.sum(DadoEpidemiologico.casos_notificados).label("notificados"),
-            func.sum(DadoEpidemiologico.casos_confirmados).label("confirmados"),
-            func.sum(DadoEpidemiologico.casos_fem).label("fem"),
-            func.sum(DadoEpidemiologico.casos_masc).label("masc"),
-            func.sum(DadoEpidemiologico.casos_0_19).label("idade_0_19"),
-            func.sum(DadoEpidemiologico.casos_20_59).label("idade_20_59"),
-            func.sum(DadoEpidemiologico.casos_60_mais).label("idade_60_mais"),
-        ).filter(
-            DadoEpidemiologico.doenca_nome == doe,
-            DadoEpidemiologico.localidade.in_(localidades),
-            DadoEpidemiologico.data_inicio_semana >= data_corte,
-        ).group_by(
-            DadoEpidemiologico.data_inicio_semana,
-            DadoEpidemiologico.semana_ano,
-        ).order_by(
-            DadoEpidemiologico.data_inicio_semana.asc()
-        ).all()
+        dt_teto_doe = limite_comum_obs if limite_comum_obs else dt_fim
+
+        # Busca histórico agregado no banco para treino + visualização
+        query = (
+            db.query(
+                DadoEpidemiologico.data_inicio_semana,
+                DadoEpidemiologico.semana_ano,
+                func.sum(DadoEpidemiologico.casos_notificados).label("notificados"),
+                func.sum(DadoEpidemiologico.casos_confirmados).label("confirmados"),
+                func.sum(DadoEpidemiologico.casos_fem).label("fem"),
+                func.sum(DadoEpidemiologico.casos_masc).label("masc"),
+                func.sum(DadoEpidemiologico.casos_0_19).label("idade_0_19"),
+                func.sum(DadoEpidemiologico.casos_20_59).label("idade_20_59"),
+                func.sum(DadoEpidemiologico.casos_60_mais).label("idade_60_mais"),
+            )
+            .filter(
+                DadoEpidemiologico.doenca_nome == doe,
+                DadoEpidemiologico.localidade.in_(localidades),
+                DadoEpidemiologico.data_inicio_semana >= dt_treino_inicio,
+                DadoEpidemiologico.data_inicio_semana <= dt_teto_doe,
+            )
+            .group_by(
+                DadoEpidemiologico.data_inicio_semana,
+                DadoEpidemiologico.semana_ano,
+            )
+            .order_by(DadoEpidemiologico.data_inicio_semana.asc())
+            .all()
+        )
 
         if not query:
-            # Fallback se não houver registros suficientes para o filtro
             continue
+
+        # Calcula proporções globais da série como fallback seguro contra semanas esparsas
+        soma_not = sum(float(r.notificados or 0) for r in query)
+        soma_conf = sum(float(r.confirmados or 0) for r in query)
+        taxa_conf_fallback = max(0.15, soma_conf / max(soma_not, 1.0))
+
+        soma_0_19 = sum(float(r.idade_0_19 or 0) for r in query)
+        soma_20_59 = sum(float(r.idade_20_59 or 0) for r in query)
+        soma_60 = sum(float(r.idade_60_mais or 0) for r in query)
+
+        soma_fem = sum(float(r.fem or 0) for r in query)
+        soma_masc = sum(float(r.masc or 0) for r in query)
 
         dados_lista = []
         for r in query:
-            if faixa_etaria == "0-19":
-                y_val = float(r.idade_0_19 or 0)
-            elif faixa_etaria == "20-59":
-                y_val = float(r.idade_20_59 or 0)
-            elif faixa_etaria == "60+":
-                y_val = float(r.idade_60_mais or 0)
-            elif sexo == "F":
-                y_val = float(r.fem or 0)
-            elif sexo == "M":
-                y_val = float(r.masc or 0)
-            elif modo == "conservador":
-                y_val = float(r.confirmados or 0)
+            notificados = float(r.notificados or 0)
+            if notificados <= 0:
+                y_val = 0.0
             else:
-                y_val = float(r.notificados or 0)
+                # 1. Fator Modo (ampliado vs conservador)
+                if modo == "conservador":
+                    conf_row = float(r.confirmados or 0)
+                    fator_modo = (conf_row / notificados) if conf_row > 0 else taxa_conf_fallback
+                else:
+                    fator_modo = 1.0
+
+                # 2. Fator Faixa Etária (combinável com modo e sexo)
+                if faixa_etaria == "0-19":
+                    val_id = float(r.idade_0_19 or 0)
+                    fator_idade = (val_id / notificados) if val_id > 0 else (soma_0_19 / max(soma_not, 1.0))
+                elif faixa_etaria == "20-59":
+                    val_id = float(r.idade_20_59 or 0)
+                    fator_idade = (val_id / notificados) if val_id > 0 else (soma_20_59 / max(soma_not, 1.0))
+                elif faixa_etaria == "60+":
+                    val_id = float(r.idade_60_mais or 0)
+                    fator_idade = (val_id / notificados) if val_id > 0 else (soma_60 / max(soma_not, 1.0))
+                else:
+                    fator_idade = 1.0
+
+                # 3. Fator Sexo (combinável com modo e faixa etária)
+                if sexo == "F":
+                    val_sx = float(r.fem or 0)
+                    fator_sexo = (val_sx / notificados) if val_sx > 0 else (soma_fem / max(soma_not, 1.0))
+                elif sexo == "M":
+                    val_sx = float(r.masc or 0)
+                    fator_sexo = (val_sx / notificados) if val_sx > 0 else (soma_masc / max(soma_not, 1.0))
+                else:
+                    fator_sexo = 1.0
+
+                y_val = notificados * fator_modo * fator_idade * fator_sexo
 
             dados_lista.append({
                 "ds": pd.to_datetime(r.data_inicio_semana),
@@ -118,33 +243,53 @@ def prever_casos_epidemiologicos(
                 "semana_ano": r.semana_ano,
             })
 
-        df = pd.DataFrame(dados_lista)
-        if len(df) < 8:
+        df_treino = pd.DataFrame(dados_lista)
+        if len(df_treino) < 8:
             continue
 
-        # Treina Prophet com sazonalidade anual
+        # Transformação log1p + growth='flat' evita que anos de megassurto (ex: Dengue 2024)
+        # gerem inclinação linear negativa que zere as previsões futuras, preservando a curva sazonal.
+        df_prophet = df_treino[["ds", "y"]].copy()
+        df_prophet["y"] = np.log1p(df_prophet["y"].astype(float))
+
         model = Prophet(
+            growth="flat",
             yearly_seasonality=True,
             weekly_seasonality=False,
             daily_seasonality=False,
             interval_width=0.80,
         )
-        model.fit(df[["ds", "y"]])
+        model.fit(df_prophet)
 
-        # Cria horizonte futuro semanal
+        # Cria horizonte futuro semanal a partir da última semana observada
         future = model.make_future_dataframe(periods=horizonte_semanas, freq="W")
         forecast = model.predict(future)
 
-        # Separa observado e futuro
-        ultima_data_obs = df["ds"].max()
+        ultima_data_obs = df_treino["ds"].max()
         futuro_df = forecast[forecast["ds"] > ultima_data_obs].head(horizonte_semanas).copy()
-        futuro_df["yhat"] = futuro_df["yhat"].clip(lower=0.0)
 
-        # Métricas para a doença
-        ultimas_obs = df.tail(8)
+        # Calibração suave de nível com as últimas 8 semanas observadas na escala log
+        ultimas_8_log = df_prophet.tail(8)["y"].mean()
+        hist_pred_8_log = forecast[forecast["ds"] <= ultima_data_obs].tail(8)["yhat"].mean()
+        ajuste_nivel_log = (ultimas_8_log - hist_pred_8_log) * 0.35
+
+        futuro_df["yhat"] = np.expm1((futuro_df["yhat"] + ajuste_nivel_log).clip(lower=0.0)).clip(lower=0.0)
+        futuro_df["yhat_lower"] = np.expm1((futuro_df["yhat_lower"] + ajuste_nivel_log).clip(lower=0.0)).clip(lower=0.0)
+        futuro_df["yhat_upper"] = np.expm1((futuro_df["yhat_upper"] + ajuste_nivel_log).clip(lower=0.0)).clip(lower=0.0)
+
+        # Recorta a série observada para o intervalo visual selecionado pelo usuário (dt_inicio..dt_teto_doe)
+        df_visivel = df_treino[df_treino["ds"] >= pd.to_datetime(dt_inicio)].copy()
+        if len(df_visivel) < 4:
+            # Fallback caso o usuário selecione um mês final onde quase não há semanas
+            df_visivel = df_treino.tail(8).copy()
+
+        # Métricas para a doença baseadas no período observado recente
+        ultimas_obs = df_visivel.tail(8)
         media_ultimas_8 = float(ultimas_obs["y"].mean()) if len(ultimas_obs) > 0 else 1.0
-        casos_recentes = int(df.iloc[-1]["y"]) if len(df) > 0 else 0
-        casos_previstos_soma = int(futuro_df["yhat"].sum())
+        ultimo_y = float(df_visivel.iloc[-1]["y"]) if len(df_visivel) > 0 else 0.0
+        casos_recentes = max(1, int(round(ultimo_y))) if ultimo_y > 0 else 0
+        soma_yhat = float(futuro_df["yhat"].sum()) if len(futuro_df) > 0 else 0.0
+        casos_previstos_soma = max(1, int(round(soma_yhat))) if soma_yhat > 0 else 0
         media_semanal_prevista = float(futuro_df["yhat"].mean()) if len(futuro_df) > 0 else 0.0
 
         mudanca_esperada_pct = round(
@@ -156,10 +301,10 @@ def prever_casos_epidemiologicos(
             idx_pico = futuro_df["yhat"].idxmax()
             row_pico = futuro_df.loc[idx_pico]
             data_pico = row_pico["ds"]
-            # Formata semana epidemiológica do pico
-            pico_se = f"SE {data_pico.isocalendar()[1]}"
+            pico_se = f"SE {data_pico.isocalendar()[1]:02d}"
             pico_data_str = data_pico.strftime("%Y-%m-%d")
-            pico_casos = int(row_pico["yhat"])
+            val_pico = float(row_pico["yhat"])
+            pico_casos = max(1, int(round(val_pico))) if val_pico > 0 else 0
         else:
             pico_se = "SE --"
             pico_data_str = ""
@@ -173,14 +318,15 @@ def prever_casos_epidemiologicos(
         else:
             tendencia = "Estável"
 
-        # Série histórica observada formatada
+        # Série histórica observada formatada (respeitando o filtro de período)
         serie_obs = []
-        for _, row in df.iterrows():
+        for _, row in df_visivel.iterrows():
+            val_obs = float(row["y"])
             serie_obs.append({
                 "semana_ano": row["semana_ano"],
                 "data_inicio": row["ds"].strftime("%Y-%m-%d"),
                 "tipo": "observado",
-                "casos": round(row["y"], 1),
+                "casos": max(1.0, round(val_obs, 1)) if val_obs > 0 else 0.0,
             })
 
         # Série futura prevista formatada
@@ -189,13 +335,14 @@ def prever_casos_epidemiologicos(
             se_num = row["ds"].isocalendar()[1]
             ano_num = row["ds"].isocalendar()[0]
             se_str = f"{ano_num}{se_num:02d}"
+            val_prev = float(row["yhat"])
             serie_prev.append({
                 "semana_ano": se_str,
                 "data_inicio": row["ds"].strftime("%Y-%m-%d"),
                 "tipo": "previsto",
-                "casos": round(row["yhat"], 1),
-                "casos_min": round(max(0.0, row["yhat_lower"]), 1),
-                "casos_max": round(max(0.0, row["yhat_upper"]), 1),
+                "casos": max(1.0, round(val_prev, 1)) if val_prev > 0 else 0.0,
+                "casos_min": round(float(row["yhat_lower"]), 1),
+                "casos_max": max(1.0, round(float(row["yhat_upper"]), 1)) if float(row["yhat_upper"]) > 0 else 0.0,
             })
 
         resultados_doencas[doe] = {
@@ -218,16 +365,16 @@ def prever_casos_epidemiologicos(
     if doenca_nome == "Ambas":
         deng_info = resultados_doencas.get("Dengue", {})
         flu_info = resultados_doencas.get("Influenza", {})
-        
-        casos_recentes_texto = f"{deng_info.get('casos_recentes', 0):,} / {flu_info.get('casos_recentes', 0):,}".replace(",", ".")
+
+        casos_recentes_texto = (
+            f"{deng_info.get('casos_recentes', 0):,} / {flu_info.get('casos_recentes', 0):,}"
+        ).replace(",", ".")
         casos_previstos_total = deng_info.get("casos_previstos", 0) + flu_info.get("casos_previstos", 0)
-        
-        # Mudança esperada combinada
+
         mudanca_combinada = round(
-            (deng_info.get("mudanca_esperada_pct", 0) + flu_info.get("mudanca_esperada_pct", 0)) / 2, 1
+            (deng_info.get("mudanca_esperada_pct", 0.0) + flu_info.get("mudanca_esperada_pct", 0.0)) / 2, 1
         )
-        
-        # Pico combinado (o maior)
+
         if deng_info.get("pico_casos", 0) >= flu_info.get("pico_casos", 0):
             pico_combinado_se = deng_info.get("pico_semana", "SE --")
             pico_combinado_data = deng_info.get("pico_data", "")
@@ -236,9 +383,11 @@ def prever_casos_epidemiologicos(
             pico_combinado_se = flu_info.get("pico_semana", "SE --")
             pico_combinado_data = flu_info.get("pico_data", "")
             pico_combinado_casos = flu_info.get("pico_casos", 0)
-            
-        tendencia_consolidada = f"{deng_info.get('tendencia', 'Estável')} / {flu_info.get('tendencia', 'Estável')}"
-        
+
+        tendencia_consolidada = (
+            f"{deng_info.get('tendencia', 'Estável')} / {flu_info.get('tendencia', 'Estável')}"
+        )
+
         indicadores = {
             "casos_recentes": casos_recentes_texto,
             "casos_previstos": casos_previstos_total,
@@ -261,14 +410,17 @@ def prever_casos_epidemiologicos(
         }
 
     # 2. Série temporal alinhada para o gráfico
-    # Mapeia todas as semanas unificadas
     mapa_pontos = defaultdict(lambda: {
         "semana_ano": "",
         "data_inicio": "",
         "tipo": "observado",
         "dengue_casos": None,
+        "dengue_min": None,
+        "dengue_max": None,
         "influenza_casos": None,
-        "total_casos": 0,
+        "influenza_min": None,
+        "influenza_max": None,
+        "total_casos": 0.0,
     })
 
     for doe, res in resultados_doencas.items():
@@ -282,7 +434,7 @@ def prever_casos_epidemiologicos(
                 mapa_pontos[k]["dengue_casos"] = pt["casos"]
             else:
                 mapa_pontos[k]["influenza_casos"] = pt["casos"]
-            mapa_pontos[k]["total_casos"] += pt["casos"]
+            mapa_pontos[k]["total_casos"] = round(mapa_pontos[k]["total_casos"] + pt["casos"], 1)
 
         # Previstos
         for pt in res["serie_prevista"]:
@@ -292,9 +444,13 @@ def prever_casos_epidemiologicos(
             mapa_pontos[k]["tipo"] = "previsto"
             if doe == "Dengue":
                 mapa_pontos[k]["dengue_casos"] = pt["casos"]
+                mapa_pontos[k]["dengue_min"] = pt.get("casos_min")
+                mapa_pontos[k]["dengue_max"] = pt.get("casos_max")
             else:
                 mapa_pontos[k]["influenza_casos"] = pt["casos"]
-            mapa_pontos[k]["total_casos"] += pt["casos"]
+                mapa_pontos[k]["influenza_min"] = pt.get("casos_min")
+                mapa_pontos[k]["influenza_max"] = pt.get("casos_max")
+            mapa_pontos[k]["total_casos"] = round(mapa_pontos[k]["total_casos"] + pt["casos"], 1)
 
     serie_temporal_completa = sorted(list(mapa_pontos.values()), key=lambda x: x["data_inicio"])
 
@@ -307,7 +463,7 @@ def prever_casos_epidemiologicos(
     deng_tot = resultados_doencas.get("Dengue", {}).get("casos_previstos", 0)
     flu_tot = resultados_doencas.get("Influenza", {}).get("casos_previstos", 0)
     tot_geral = deng_tot + flu_tot
-    
+
     distribuicao = {
         "dengue": {
             "casos": deng_tot,
@@ -337,7 +493,11 @@ def prever_casos_epidemiologicos(
         "localidades": localidades,
         "horizonte_semanas": horizonte_semanas,
         "periodo_historico_meses": periodo_historico_meses,
+        "data_inicio": dt_inicio.strftime("%Y-%m"),
+        "data_fim": dt_fim.strftime("%Y-%m"),
         "modo": modo,
+        "faixa_etaria": faixa_etaria,
+        "sexo": sexo,
         "indicadores": indicadores,
         "serie_temporal": serie_temporal_completa,
         "panorama_texto": panorama_texto,
@@ -347,7 +507,7 @@ def prever_casos_epidemiologicos(
             "materiais": impacto_materiais,
         },
         "rodape": {
-            "fonte": "bases epidemiológicas públicas · dados oficiais DATASUS / SINAN / SIVEP-Gripe",
+            "fonte": "bases epidemiológicas públicas · dados oficiais SINAN / DATASUS",
             "cobertura": f"{periodo_historico_meses} meses · {', '.join(localidades)}",
             "atualizado_em": datetime.now().strftime("%d/%m/%Y às %H:%M"),
         },
@@ -370,7 +530,6 @@ def _cruzar_demanda_com_estoque(
     hoje = date.today()
     materiais_impactados = []
 
-    # Busca vínculos de materiais para as doenças analisadas
     vinculos = (
         db.query(
             materiais_doencas.c.material_id,
@@ -385,22 +544,19 @@ def _cruzar_demanda_com_estoque(
         .filter(Doenca.nome.in_(doencas_alvo), Material.ativo.is_(True))
         .all()
     )
-    
+
     for row in vinculos:
         mat_id = row[0]
         mat_nome = row[1]
         doe_nome = row[2]
         qtd_por_exame = float(row[3] or 1.0)
         unidade = row[4] or "un"
-        estoque_min = float(row[5] or 0.0)
 
         casos_previstos = resultados_doencas.get(doe_nome, {}).get("casos_previstos", 0)
 
-        # Cálculo da demanda projetada com 20% de margem
         demanda_base = casos_previstos * qtd_por_exame
         demanda_projetada = round(demanda_base * 1.20, 1)
 
-        # Saldo físico atual não vencido (FEFO)
         lotes = db.query(Lote).filter(
             Lote.material_id == mat_id,
             Lote.quantidade_atual > 0,
@@ -410,7 +566,6 @@ def _cruzar_demanda_com_estoque(
 
         saldo_projetado = round(saldo_atual - demanda_projetada, 1)
 
-        # Classificação de Risco
         if saldo_projetado < 0:
             status_risco = "CRITICO"
             mensagem_risco = "Déficit iminente frente ao pico epidemiológico previsto."
@@ -421,7 +576,6 @@ def _cruzar_demanda_com_estoque(
             status_risco = "SEGURO"
             mensagem_risco = "Estoque plenamente dimensionado para o horizonte previsto."
 
-        # Cobertura projetada em dias
         consumo_diario_proj = demanda_projetada / max(horizonte_semanas * 7, 1)
         cobertura_dias_proj = round(saldo_atual / max(consumo_diario_proj, 0.001), 1)
 
@@ -441,7 +595,6 @@ def _cruzar_demanda_com_estoque(
             "consumo_diario_projetado": round(consumo_diario_proj, 4),
         })
 
-    # Ordena: CRITICO primeiro, depois ATENCAO, depois SEGURO
     ordem_risco = {"CRITICO": 0, "ATENCAO": 1, "SEGURO": 2}
     materiais_impactados.sort(key=lambda x: (ordem_risco.get(x["status_risco"], 9), -x["demanda_projetada"]))
 
@@ -495,7 +648,7 @@ def _resultado_epidemiologico_vazio(doenca: str, localidades: List[str], horizon
         "distribuicao": {"dengue": {"casos": 0, "percentual": 0.0}, "influenza": {"casos": 0, "percentual": 0.0}, "total_previsto": 0},
         "impacto_demanda": {"mensagem": "Sem dados suficientes para calcular impacto.", "materiais": []},
         "rodape": {
-            "fonte": "bases epidemiológicas públicas",
+            "fonte": "bases epidemiológicas públicas · SINAN",
             "cobertura": f"Sem dados para {', '.join(localidades)}",
             "atualizado_em": datetime.now().strftime("%d/%m/%Y às %H:%M"),
         },
@@ -515,7 +668,6 @@ def prever_demanda_material(material_id: int, db: Session, horizonte_dias: int =
     if not material:
         return _resultado_sem_dados(material_id, None, "un", "Material não encontrado.")
 
-    # Verifica se o material está vinculado a alguma doença
     stmt = text("""
         SELECT d.nome, md.quantidade_por_exame
         FROM materiais_doencas md
@@ -529,7 +681,6 @@ def prever_demanda_material(material_id: int, db: Session, horizonte_dias: int =
         qtd_exame = float(vinculo[1] or 1.0)
         semanas = max(4, horizonte_dias // 7)
 
-        # Chama a previsão epidemiológica de Santos / Baixada Santista
         res_epi = prever_casos_epidemiologicos(
             doenca_nome=doe_nome,
             localidades=["Santos"],
@@ -542,24 +693,21 @@ def prever_demanda_material(material_id: int, db: Session, horizonte_dias: int =
         consumo_previsto_diario = round(demanda_prevista_total / max(horizonte_dias, 1), 4)
 
         tendencia = res_epi["indicadores"].get("tendencia", "Estável").lower()
-        
-        # AJUSTE 2: Trava de segurança para consumo zero e Risco de Surto
+
         if consumo_previsto_diario <= 0:
             risco_surto = "BAIXO"
         else:
             risco_surto = "ALTO" if "crescente" in tendencia else ("MODERADO" if "estável" in tendencia else "BAIXO")
 
-        # AJUSTE 2: Consumo Baseline real (Média dos últimos 90 dias)
         data_corte = datetime.now() - timedelta(days=90)
         consumo_historico = db.query(func.sum(MovimentacaoEstoque.quantidade)).join(Lote).filter(
             Lote.material_id == material_id,
             MovimentacaoEstoque.tipo == "USO",
             MovimentacaoEstoque.criado_em >= data_corte
         ).scalar() or 0.0
-        
+
         baseline_diario_real = round(float(consumo_historico) / 90, 4)
         if baseline_diario_real == 0.0 and consumo_previsto_diario > 0:
-            # Fallback seguro caso nunca tenha havido consumo mas há surto
             baseline_diario_real = round(consumo_previsto_diario * 0.8, 4)
 
         return {
@@ -579,7 +727,6 @@ def prever_demanda_material(material_id: int, db: Session, horizonte_dias: int =
             "calculado_em": datetime.now().isoformat(),
         }
 
-    # Se não for material de Dengue/Influenza, retorna sem dados ou padrão neutro
     return _resultado_sem_dados(material_id, material.nome, material.unidade_medida, "Material não vinculado a Dengue ou Influenza.")
 
 

@@ -7,6 +7,9 @@ Endpoints disponíveis:
   GET  /api/ia/previsao                 → Previsão Prophet de todos os materiais com dados
   GET  /api/ia/previsao/material/{id}   → Previsão Prophet de um material específico
   POST /api/ia/justificativa            → Texto explicativo gerado pelo Gemini
+  GET  /api/ia/previsao-epidemiologica  → Série temporal e previsão epidemiológica (Prophet/SINAN)
+  GET  /api/ia/cruzamento               → Cruzamento direto de demanda epidemiológica com estoque
+  POST /api/ia/assistente/consulta      → Assistente dinâmico com dados reais do banco
 """
 
 import os
@@ -144,7 +147,6 @@ def gerar_justificativa(
     Retorna:
         { "texto": "..." }
     """
-    # --- 1. Verifica API Key ---
     api_key = os.getenv("GEMINI_API_KEY", "")
     if not api_key or api_key.startswith("COLE_"):
         raise HTTPException(
@@ -152,12 +154,10 @@ def gerar_justificativa(
             detail="Chave GEMINI_API_KEY não configurada. Adicione ao .env e reinicie o servidor.",
         )
 
-    # --- 2. Circuit Breaker (anti-custo) ---
-    check_ai_quota()  # lança HTTP 429 se o limite for atingido
+    check_ai_quota()
 
-    # --- 3. Coleta dados do Motor de Estoque para os materiais solicitados ---
     coberturas = []
-    for mid in body.material_ids[:10]:  # Limita a 10 materiais por chamada
+    for mid in body.material_ids[:10]:
         cob = calcular_cobertura(mid, db)
         if cob.get("nome"):
             coberturas.append(cob)
@@ -165,7 +165,6 @@ def gerar_justificativa(
     if not coberturas:
         raise HTTPException(status_code=404, detail="Nenhum material válido encontrado para os IDs informados.")
 
-    # --- 4. Monta o prompt ---
     linhas_materiais = "\n".join(
         f"  - {c['nome']} | Saldo: {c['saldo_atual']} {c['unidade_medida']} | "
         f"Cobertura: {c['cobertura_dias']} dias | Lead Time: {c['lead_time_dias']} dias | "
@@ -197,17 +196,16 @@ INSTRUÇÕES:
 
 JUSTIFICATIVA:"""
 
-    # --- 5. Chama o Gemini (google-genai >= 1.0) ---
     try:
-        from google import genai as google_genai  # type: ignore  # nova biblioteca oficial
+        from google import genai as google_genai  # type: ignore
 
         client = google_genai.Client(api_key=api_key)
         response = client.models.generate_content(
-            model="gemini-3.6-flash",  # modelo mais recente exigido pela API do Google
+            model="gemini-3.6-flash",
             contents=prompt,
             config={
-                "max_output_tokens": 2048,  # margem confortável para texto completo
-                "temperature": 0.3,         # Mais factual, menos criativo
+                "max_output_tokens": 2048,
+                "temperature": 0.3,
             },
         )
         texto = response.text.strip()
@@ -235,7 +233,9 @@ def obter_previsao_epidemiologica(
     doenca: str = Query("Dengue", description="Dengue | Influenza | Ambas"),
     localidades: str = Query("Santos", description="Localidades separadas por vírgula"),
     horizonte_semanas: int = Query(8, ge=4, le=20, description="Próximas X semanas (4 a 20)"),
-    periodo_historico_meses: int = Query(24, description="12 | 24 | 36 meses"),
+    periodo_historico_meses: int = Query(24, description="Meses de histórico"),
+    data_inicio: Optional[str] = Query(None, description="Mês/Ano inicial (YYYY-MM)"),
+    data_fim: Optional[str] = Query(None, description="Mês/Ano final (YYYY-MM)"),
     modo: str = Query("ampliado", description="ampliado (todos os notificados) | conservador (confirmados)"),
     faixa_etaria: str = Query("todas", description="todas | 0-19 | 20-59 | 60+"),
     sexo: str = Query("todos", description="todos | F | M"),
@@ -243,7 +243,7 @@ def obter_previsao_epidemiologica(
     _user: Usuario = Depends(get_current_user),
 ):
     """
-    Retorna a análise e projeção epidemiológica via Prophet, indicadores,
+    Retorna a análise e projeção epidemiológica via Prophet (SINAN), indicadores,
     série temporal para gráfico, panorama textual e potencial impacto laboratorial.
     """
     try:
@@ -259,6 +259,8 @@ def obter_previsao_epidemiologica(
             modo=modo,
             faixa_etaria=faixa_etaria,
             sexo=sexo,
+            data_inicio=data_inicio,
+            data_fim=data_fim,
             db=db,
         )
         return resultado
@@ -309,10 +311,11 @@ def obter_cruzamento_estoque(
 
 
 # =====================================================================
-# ENDPOINT 6 — Consulta Assistente Dinâmico (Sem LLM / Dados Reais)
+# ENDPOINT 8 — Consulta Assistente Dinâmico (Sem LLM / Dados Reais)
 # =====================================================================
 class ConsultaAssistenteRequest(BaseModel):
     mensagem: str
+
 
 @router.post("/assistente/consulta", summary="Respostas dinâmicas baseadas em regras e dados reais")
 def consulta_assistente(
@@ -325,75 +328,7 @@ def consulta_assistente(
     diretamente do banco de dados (Substitui as respostas estáticas).
     """
     mensagem = body.mensagem.lower()
-    
-    if "vencer" in mensagem or "30 dias" in mensagem or "validade" in mensagem:
-        from datetime import date, timedelta
-        limite = date.today() + timedelta(days=30)
-        from app.models.models import Lote, Material
-        lotes_vencendo = db.query(Lote).join(Material).filter(
-            Lote.data_validade <= limite,
-            Lote.data_validade >= date.today(),
-            Lote.quantidade_atual > 0
-        ).order_by(Lote.data_validade.asc()).all()
-        
-        if not lotes_vencendo:
-            return {"resposta": "Excelente notícia! Não há lotes com vencimento previsto para os próximos 30 dias com saldo em estoque."}
-            
-        texto = f"Encontrei {len(lotes_vencendo)} lote(s) com atenção exigida nos próximos 30 dias:\\n\\n"
-        for lote in lotes_vencendo:
-            dias = (lote.data_validade - date.today()).days
-            texto += f"• **{lote.material.nome}**\\n  - Lote: {lote.numero_lote} (Saldo: {float(lote.quantidade_atual)} {lote.material.unidade_medida})\\n  - Vence em {dias} dias.\\n\\n"
-        texto += "**Recomendação Biomédica:** Priorizar o consumo imediato destes lotes no método PEPS."
-        return {"resposta": texto}
-        
-    elif "outono" in mensagem or "doenç" in mensagem or "pico" in mensagem or "epidemiolog" in mensagem:
-        res_influenza = prever_casos_epidemiologicos("Influenza", ["Santos"], db=db)
-        res_dengue = prever_casos_epidemiologicos("Dengue", ["Santos"], db=db)
-        
-        pico_inf = res_influenza["indicadores"].get("pico_semana", "N/A")
-        pico_inf_data = res_influenza["indicadores"].get("pico_data", "N/A")
-        pico_den = res_dengue["indicadores"].get("pico_semana", "N/A")
-        
-        texto = "Analisando as previsões epidemiológicas (Prophet) para a região:\\n\\n"
-        texto += f"1. **Influenza A/B (J10):** Tendência {res_influenza['indicadores'].get('tendencia')}. Pico esperado na semana {pico_inf} ({pico_inf_data}).\\n"
-        texto += f"2. **Dengue (A90):** Tendência {res_dengue['indicadores'].get('tendencia')}. Pico esperado na semana {pico_den}.\\n\\n"
-        texto += "**Recomendação:** Acompanhe a aba Previsão Epidemiológica para cruzar as informações com as datas reais de validade dos kits diagnósticos associados."
-        return {"resposta": texto}
-        
-    elif "brometo" in mensagem or "biossegurança" in mensagem or "fispq" in mensagem:
-        return {"resposta": "🛡️ **Ficha de Biossegurança Padrão ANVISA (RDC 302/2005)**\\n\\n• **Exemplo - Brometo de Etídio:** Agente Mutagênico (Grupo B).\\n• **EPIs Obrigatórios:** Luvas duplas de nitrilo, óculos de segurança contra respingos, capela de exaustão química.\\n\\n• **Derramamento:** Isolar, absorver a seco, descontaminar (KMnO4 + HCl diluído) e descartar no Grupo B.\\n\\n*Nota: O acesso a PDFs FISPQ vetoriais estará disponível em versão futura (RAG).*"}
-        
-    elif "resumo" in mensagem or "diretoria" in mensagem or "executivo" in mensagem:
-        from app.models.models import Material, Lote
-        from sqlalchemy import func
-        total_materiais = db.query(func.count(Material.id)).filter(Material.ativo == True).scalar()
-        criticos = calcular_cobertura_todos(db, apenas_criticos=True)
-        texto = f"📊 **RESUMO EXECUTIVO DO ESTOQUE LAURUS AI**\\n\\n"
-        texto += f"• **Total de Itens Monitorados:** {total_materiais} materiais cadastrados ativos.\\n"
-        texto += f"• **Status da Reposição:** {len(criticos)} materiais identificados como nível CRÍTICO (Abaixo da linha de segurança).\\n"
-        texto += f"\\n*Relatório atualizado em tempo real no banco de dados do laboratório.*"
-        return {"resposta": texto}
-        
-    else:
-        return {"resposta": f"Com base nos dados atuais do seu estoque:\\n\\nPara **\\\"{body.mensagem}\\\"**, recomendo verificar a aba de Reposição ou Estoque.\\n\\nExperimente perguntar sobre vencimentos em 30 dias, resumo para diretoria, picos epidemiológicos ou procedimentos FISPQ de biossegurança."}
-# =====================================================================
-# ENDPOINT 6 — Consulta Assistente Dinâmico (Sem LLM / Dados Reais)
-# =====================================================================
-class ConsultaAssistenteRequest(BaseModel):
-    mensagem: str
 
-@router.post("/assistente/consulta", summary="Respostas dinâmicas baseadas em regras e dados reais")
-def consulta_assistente(
-    body: ConsultaAssistenteRequest,
-    db: Session = Depends(get_db),
-    _user: Usuario = Depends(get_current_user),
-):
-    """
-    Recebe a pergunta do usuário, identifica o tema e retorna dados formatados
-    diretamente do banco de dados (Substitui as respostas estáticas).
-    """
-    mensagem = body.mensagem.lower()
-    
     if "vencer" in mensagem or "30 dias" in mensagem or "validade" in mensagem:
         from datetime import date, timedelta
         limite = date.today() + timedelta(days=30)
@@ -403,44 +338,44 @@ def consulta_assistente(
             Lote.data_validade >= date.today(),
             Lote.quantidade_atual > 0
         ).order_by(Lote.data_validade.asc()).all()
-        
+
         if not lotes_vencendo:
             return {"resposta": "Excelente notícia! Não há lotes com vencimento previsto para os próximos 30 dias com saldo em estoque."}
-            
-        texto = f"Encontrei {len(lotes_vencendo)} lote(s) com atenção exigida nos próximos 30 dias:\\n\\n"
+
+        texto = f"Encontrei {len(lotes_vencendo)} lote(s) com atenção exigida nos próximos 30 dias:\n\n"
         for lote in lotes_vencendo:
             dias = (lote.data_validade - date.today()).days
-            texto += f"• **{lote.material.nome}**\\n  - Lote: {lote.numero_lote} (Saldo: {float(lote.quantidade_atual)} {lote.material.unidade_medida})\\n  - Vence em {dias} dias.\\n\\n"
+            texto += f"• **{lote.material.nome}**\n  - Lote: {lote.numero_lote} (Saldo: {float(lote.quantidade_atual)} {lote.material.unidade_medida})\n  - Vence em {dias} dias.\n\n"
         texto += "**Recomendação Biomédica:** Priorizar o consumo imediato destes lotes no método PEPS."
         return {"resposta": texto}
-        
+
     elif "outono" in mensagem or "doenç" in mensagem or "pico" in mensagem or "epidemiolog" in mensagem:
         res_influenza = prever_casos_epidemiologicos("Influenza", ["Santos"], db=db)
         res_dengue = prever_casos_epidemiologicos("Dengue", ["Santos"], db=db)
-        
+
         pico_inf = res_influenza["indicadores"].get("pico_semana", "N/A")
         pico_inf_data = res_influenza["indicadores"].get("pico_data", "N/A")
         pico_den = res_dengue["indicadores"].get("pico_semana", "N/A")
-        
-        texto = "Analisando as previsões epidemiológicas (Prophet) para a região:\\n\\n"
-        texto += f"1. **Influenza A/B (J10):** Tendência {res_influenza['indicadores'].get('tendencia')}. Pico esperado na semana {pico_inf} ({pico_inf_data}).\\n"
-        texto += f"2. **Dengue (A90):** Tendência {res_dengue['indicadores'].get('tendencia')}. Pico esperado na semana {pico_den}.\\n\\n"
+
+        texto = "Analisando as previsões epidemiológicas (Prophet) para a região:\n\n"
+        texto += f"1. **Influenza A/B (J10):** Tendência {res_influenza['indicadores'].get('tendencia')}. Pico esperado na semana {pico_inf} ({pico_inf_data}).\n"
+        texto += f"2. **Dengue (A90):** Tendência {res_dengue['indicadores'].get('tendencia')}. Pico esperado na semana {pico_den}.\n\n"
         texto += "**Recomendação:** Acompanhe a aba Previsão Epidemiológica para cruzar as informações com as datas reais de validade dos kits diagnósticos associados."
         return {"resposta": texto}
-        
+
     elif "brometo" in mensagem or "biossegurança" in mensagem or "fispq" in mensagem:
-        return {"resposta": "🛡️ **Ficha de Biossegurança Padrão ANVISA (RDC 302/2005)**\\n\\n• **Exemplo - Brometo de Etídio:** Agente Mutagênico (Grupo B).\\n• **EPIs Obrigatórios:** Luvas duplas de nitrilo, óculos de segurança contra respingos, capela de exaustão química.\\n\\n• **Derramamento:** Isolar, absorver a seco, descontaminar (KMnO4 + HCl diluído) e descartar no Grupo B.\\n\\n*Nota: O acesso a PDFs FISPQ vetoriais estará disponível em versão futura (RAG).*"}
-        
+        return {"resposta": "🛡️ **Ficha de Biossegurança Padrão ANVISA (RDC 302/2005)**\n\n• **Exemplo - Brometo de Etídio:** Agente Mutagênico (Grupo B).\n• **EPIs Obrigatórios:** Luvas duplas de nitrilo, óculos de segurança contra respingos, capela de exaustão química.\n\n• **Derramamento:** Isolar, absorver a seco, descontaminar (KMnO4 + HCl diluído) e descartar no Grupo B.\n\n*Nota: O acesso a PDFs FISPQ vetoriais estará disponível em versão futura (RAG).*"}
+
     elif "resumo" in mensagem or "diretoria" in mensagem or "executivo" in mensagem:
-        from app.models.models import Material, Lote
+        from app.models.models import Material
         from sqlalchemy import func
-        total_materiais = db.query(func.count(Material.id)).filter(Material.ativo == True).scalar()
+        total_materiais = db.query(func.count(Material.id)).filter(Material.ativo.is_(True)).scalar()
         criticos = calcular_cobertura_todos(db, apenas_criticos=True)
-        texto = f"📊 **RESUMO EXECUTIVO DO ESTOQUE LAURUS AI**\\n\\n"
-        texto += f"• **Total de Itens Monitorados:** {total_materiais} materiais cadastrados ativos.\\n"
-        texto += f"• **Status da Reposição:** {len(criticos)} materiais identificados como nível CRÍTICO (Abaixo da linha de segurança).\\n"
-        texto += f"\\n*Relatório atualizado em tempo real no banco de dados do laboratório.*"
+        texto = "📊 **RESUMO EXECUTIVO DO ESTOQUE LAURUS AI**\n\n"
+        texto += f"• **Total de Itens Monitorados:** {total_materiais} materiais cadastrados ativos.\n"
+        texto += f"• **Status da Reposição:** {len(criticos)} materiais identificados como nível CRÍTICO (Abaixo da linha de segurança).\n"
+        texto += "\n*Relatório atualizado em tempo real no banco de dados do laboratório.*"
         return {"resposta": texto}
-        
+
     else:
-        return {"resposta": f"Com base nos dados atuais do seu estoque:\\n\\nPara **\\\"{body.mensagem}\\\"**, recomendo verificar a aba de Reposição ou Estoque.\\n\\nExperimente perguntar sobre vencimentos em 30 dias, resumo para diretoria, picos epidemiológicos ou procedimentos FISPQ de biossegurança."}
+        return {"resposta": f"Com base nos dados atuais do seu estoque:\n\nPara **\"{body.mensagem}\"**, recomendo verificar a aba de Reposição ou Estoque.\n\nExperimente perguntar sobre vencimentos em 30 dias, resumo para diretoria, picos epidemiológicos ou procedimentos FISPQ de biossegurança."}

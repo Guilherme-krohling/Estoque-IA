@@ -254,6 +254,8 @@ export const iaApi = {
     localidades?: string;
     horizonte_semanas?: number;
     periodo_historico_meses?: number;
+    data_inicio?: string;
+    data_fim?: string;
     modo?: string;
     faixa_etaria?: string;
     sexo?: string;
@@ -263,6 +265,8 @@ export const iaApi = {
     if (params.localidades) query.set("localidades", params.localidades);
     if (params.horizonte_semanas) query.set("horizonte_semanas", String(params.horizonte_semanas));
     if (params.periodo_historico_meses) query.set("periodo_historico_meses", String(params.periodo_historico_meses));
+    if (params.data_inicio) query.set("data_inicio", params.data_inicio);
+    if (params.data_fim) query.set("data_fim", params.data_fim);
     if (params.modo) query.set("modo", params.modo);
     if (params.faixa_etaria) query.set("faixa_etaria", params.faixa_etaria);
     if (params.sexo) query.set("sexo", params.sexo);

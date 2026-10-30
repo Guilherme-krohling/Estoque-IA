@@ -139,7 +139,7 @@ def main():
             casos_0_19=int(row["casos_0_19"]),
             casos_20_59=int(row["casos_20_59"]),
             casos_60_mais=int(row["casos_60_mais"]),
-            fonte="DATASUS",
+            fonte="SINAN",
         )
         registros.append(reg)
         

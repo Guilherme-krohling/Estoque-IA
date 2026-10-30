@@ -185,10 +185,29 @@ export default function PrevisaoEpidemiologicaPage() {
 
   // Estado dos Dados
   const [loading, setLoading] = useState(true);
+  const [segundosDecorridos, setSegundosDecorridos] = useState(0);
   const [dados, setDados] = useState<any>(null);
   const [erro, setErro] = useState<string | null>(null);
 
   const dropdownRef = useRef<HTMLDivElement>(null);
+
+  // Estimativa de tempo do Prophet (Ambas treina 2 modelos; doença única treina 1)
+  const tempoEstimadoSegundos = doenca === "Ambas" ? 4 : 2;
+
+  // Cronômetro em tempo real enquanto o Prophet calcula a projeção
+  useEffect(() => {
+    if (!loading) {
+      setSegundosDecorridos(0);
+      return;
+    }
+    setSegundosDecorridos(0);
+    const inicio = Date.now();
+    const timer = setInterval(() => {
+      const decorrido = (Date.now() - inicio) / 1000;
+      setSegundosDecorridos(Number(decorrido.toFixed(1)));
+    }, 100);
+    return () => clearInterval(timer);
+  }, [loading]);
 
   // Calcula meses de histórico a partir do intervalo selecionado
   const periodoHistoricoMeses = useMemo(() => {
@@ -219,6 +238,8 @@ export default function PrevisaoEpidemiologicaPage() {
       localidades: localidades.join(","),
       horizonte_semanas: horizonteSemanas,
       periodo_historico_meses: periodoHistoricoMeses,
+      data_inicio: periodoInicio,
+      data_fim: periodoFim,
       modo,
       faixa_etaria: faixaEtaria,
       sexo,
@@ -243,7 +264,7 @@ export default function PrevisaoEpidemiologicaPage() {
     return () => {
       cancelado = true;
     };
-  }, [doenca, localidades, horizonteSemanas, periodoHistoricoMeses, modo, faixaEtaria, sexo]);
+  }, [doenca, localidades, horizonteSemanas, periodoHistoricoMeses, periodoInicio, periodoFim, modo, faixaEtaria, sexo]);
 
   // Manipulação de seleção múltipla no dropdown
   const toggleLocalidade = (locId: string) => {
@@ -261,29 +282,20 @@ export default function PrevisaoEpidemiologicaPage() {
   const chartData = useMemo(() => {
     if (!dados?.serie_temporal || dados.serie_temporal.length === 0) return [];
 
-    // Filtra por intervalo de datas selecionado
-    const dataInicio = `${periodoInicio}-01`;
+    // O backend já recorta e aplica fallback seguro para o intervalo (data_inicio..data_fim)
+    return dados.serie_temporal.map((p: any) => {
+      const mesAnoLabel = formatarMesAno(p.data_inicio);
 
-    return dados.serie_temporal
-      .filter((p: any) => {
-        // Só filtra observados pelo período. Previstos sempre inclusos.
-        if (p.tipo === "previsto") return true;
-        return p.data_inicio >= dataInicio;
-      })
-      .map((p: any) => {
-        // Eixo X: Mês/Ano
-        const mesAnoLabel = formatarMesAno(p.data_inicio);
-
-        return {
-          ...p,
-          mesAnoLabel,
-          dengue_observado: p.tipo === "observado" ? p.dengue_casos : null,
-          dengue_previsto: p.tipo === "previsto" ? p.dengue_casos : null,
-          influenza_observado: p.tipo === "observado" ? p.influenza_casos : null,
-          influenza_previsto: p.tipo === "previsto" ? p.influenza_casos : null,
-        };
-      });
-  }, [dados, periodoInicio]);
+      return {
+        ...p,
+        mesAnoLabel,
+        dengue_observado: p.tipo === "observado" ? p.dengue_casos : null,
+        dengue_previsto: p.tipo === "previsto" ? p.dengue_casos : null,
+        influenza_observado: p.tipo === "observado" ? p.influenza_casos : null,
+        influenza_previsto: p.tipo === "previsto" ? p.influenza_casos : null,
+      };
+    });
+  }, [dados]);
 
   // Label do ponto de início da previsão
   const previsaoStartLabel = useMemo(() => {
@@ -763,9 +775,24 @@ export default function PrevisaoEpidemiologicaPage() {
 
         <div className="w-full bg-slate-950/40 rounded-xl border border-slate-800/80 p-3 pt-4">
           {loading ? (
-            <div className="h-80 flex flex-col items-center justify-center gap-2 text-slate-400">
+            <div className="h-80 flex flex-col items-center justify-center gap-3 text-slate-400">
               <div className="w-8 h-8 border-2 border-emerald-400 border-t-transparent rounded-full animate-spin"></div>
-              <p className="text-xs font-medium">Calculando projeção Prophet com série temporal...</p>
+              <p className="text-xs font-medium text-slate-300">
+                Calculando projeção Prophet com série temporal...
+              </p>
+              <div className="flex flex-col items-center gap-1.5">
+                <span className="px-3 py-1 rounded-full bg-slate-900/90 border border-emerald-500/30 text-[11px] font-semibold text-emerald-400 tabular-nums">
+                  ⏱️ Tempo estimado: ~{ Math.max(0.1, Number((tempoEstimadoSegundos - segundosDecorridos).toFixed(1))) }s restantes ({segundosDecorridos.toFixed(1)}s decorridos)
+                </span>
+                <div className="w-48 h-1.5 bg-slate-800 rounded-full overflow-hidden">
+                  <div
+                    className="h-full bg-emerald-400 transition-all duration-100"
+                    style={{
+                      width: `${Math.min(95, Math.round((segundosDecorridos / tempoEstimadoSegundos) * 100))}%`,
+                    }}
+                  />
+                </div>
+              </div>
             </div>
           ) : chartDataConectado.length > 0 ? (
             <>
@@ -1147,7 +1174,7 @@ export default function PrevisaoEpidemiologicaPage() {
           SEÇÃO 6 — RODAPÉ
       ===================================================================== */}
       <div className="flex flex-col sm:flex-row justify-between items-center gap-2 text-xs text-slate-400 px-2">
-        <span>Fonte: bases epidemiológicas públicas · dados oficiais DATASUS / SINAN / SIVEP-Gripe</span>
+        <span>Fonte: bases epidemiológicas públicas · dados oficiais SINAN / DATASUS</span>
         <span>
           Cobertura: {textoPeríodo} · {localidades.join(", ")}
         </span>

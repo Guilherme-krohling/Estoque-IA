@@ -44,7 +44,7 @@ def extrair_idade_em_anos(nu_idade):
         if val >= 4000:
             return val - 4000
         elif val < 4000:
-            return 0  # meses, dias ou horas
+            return val if 0 <= val < 150 else 0  # idade direta (SIVEP) ou meses/dias (SINAN)
     except:
         pass
     return -1
