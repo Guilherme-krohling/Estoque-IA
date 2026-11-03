@@ -1,27 +1,37 @@
 """
-Laurus AI — Endpoints de IA
-==========================
+Laurus AI — Endpoints de Análise Algorítmica e Previsão Epidemiológica
+====================================================================
 Endpoints disponíveis:
-  GET  /api/ia/cobertura                → Motor de Estoque determinístico (todos os materiais)
-  GET  /api/ia/cobertura/{id}           → Cobertura de um único material
-  GET  /api/ia/previsao                 → Previsão Prophet de todos os materiais com dados
-  GET  /api/ia/previsao/material/{id}   → Previsão Prophet de um material específico
-  POST /api/ia/justificativa            → Texto explicativo gerado pelo Gemini
-  GET  /api/ia/previsao-epidemiologica  → Série temporal e previsão epidemiológica (Prophet/SINAN)
-  GET  /api/ia/cruzamento               → Cruzamento direto de demanda epidemiológica com estoque
-  POST /api/ia/assistente/consulta      → Assistente dinâmico com dados reais do banco
+  GET    /api/ia/cobertura                → Motor de Estoque determinístico (todos os materiais)
+  GET    /api/ia/cobertura/{id}           → Cobertura de um único material
+  GET    /api/ia/previsao                 → Previsão Prophet de todos os materiais com dados
+  GET    /api/ia/previsao/material/{id}   → Previsão Prophet de um material específico
+  GET    /api/ia/previsao-epidemiologica  → Série temporal e previsão epidemiológica (Prophet/SINAN)
+  GET    /api/ia/cruzamento               → Cruzamento direto de demanda epidemiológica com estoque
+  POST   /api/ia/previsoes-salvas         → Salva snapshot completo da previsão (gráfico + filtros)
+  GET    /api/ia/previsoes-salvas         → Lista previsões salvas (para o Dropdown de Alertas)
+  GET    /api/ia/previsoes-salvas/{id}    → Retorna snapshot completo de uma previsão salva
+  DELETE /api/ia/previsoes-salvas/{id}    → Remove uma previsão salva
+  GET    /api/ia/analise-estoque          → Análise Algorítmica de Estoque cruzada com Previsão Salva
+  POST   /api/ia/assistente/consulta      → Assistente dinâmico com dados reais do banco
 """
 
+import json
 import os
 import logging
-from typing import Optional
+from datetime import datetime
+from typing import Optional, Dict, Any, List
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
 from app.db.database import get_db
-from app.core.motor_estoque import calcular_cobertura, calcular_cobertura_todos
+from app.core.motor_estoque import (
+    calcular_cobertura,
+    calcular_cobertura_todos,
+    analisar_estoque_algoritmico,
+)
 from app.core.previsao_epidemiologica import (
     prever_demanda_material,
     prever_demanda_todos,
@@ -30,7 +40,7 @@ from app.core.previsao_epidemiologica import (
 from app.core.ai_guard import check_ai_quota
 from app.core.security import get_current_user
 from app.core.limiter import limiter
-from app.models.models import Usuario
+from app.models.models import Usuario, PrevisaoSalva
 
 logger = logging.getLogger("stockia.ia")
 
@@ -46,6 +56,30 @@ class JustificativaRequest(BaseModel):
     contexto_epidemiologico: Optional[str] = None
 
 
+class SalvarPrevisaoRequest(BaseModel):
+    nome: Optional[str] = None
+    titulo: Optional[str] = None
+    doenca: str
+    localidades: List[str]
+    data_inicio: Optional[str] = None
+    data_fim: Optional[str] = None
+    horizonte_semanas: int = 8
+    periodo_historico_meses: int = 24
+    modo: str = "ampliado"
+    faixa_etaria: str = "todas"
+    sexo: str = "todos"
+    casos_recentes: Optional[Any] = None
+    casos_previstos: Optional[int] = None
+    casos_dengue_previstos: Optional[int] = None
+    casos_influenza_previstos: Optional[int] = None
+    mudanca_esperada_pct: Optional[float] = None
+    pico_data: Optional[str] = None
+    pico_casos: Optional[int] = None
+    tendencia: Optional[str] = None
+    grau_confianca: float = 80.0
+    dados_completos: Dict[str, Any]
+
+
 # =====================================================================
 # ENDPOINT 1 — Cobertura geral de todos os materiais
 # =====================================================================
@@ -53,12 +87,8 @@ class JustificativaRequest(BaseModel):
 def cobertura_geral(
     apenas_criticos: bool = Query(False, description="Se true, retorna apenas COMPRAR"),
     db: Session = Depends(get_db),
-    _user: Usuario = Depends(get_current_user),  # 🔒 JWT obrigatório
+    _user: Usuario = Depends(get_current_user),
 ):
-    """
-    Calcula o indicador de cobertura de dias para TODOS os materiais ativos.
-    Usa o motor determinístico (matemática pura, sem IA generativa).
-    """
     try:
         resultados = calcular_cobertura_todos(db, apenas_criticos=apenas_criticos)
         return resultados
@@ -74,11 +104,8 @@ def cobertura_geral(
 def cobertura_material(
     material_id: int,
     db: Session = Depends(get_db),
-    _user: Usuario = Depends(get_current_user),  # 🔒 JWT obrigatório
+    _user: Usuario = Depends(get_current_user),
 ):
-    """
-    Calcula indicadores de estoque para um único material pelo ID.
-    """
     try:
         resultado = calcular_cobertura(material_id, db)
         return resultado
@@ -93,12 +120,8 @@ def cobertura_material(
 @router.get("/previsao", summary="Previsão epidemiológica de todos os materiais")
 def previsao_geral(
     db: Session = Depends(get_db),
-    _user: Usuario = Depends(get_current_user),  # 🔒 JWT obrigatório
+    _user: Usuario = Depends(get_current_user),
 ):
-    """
-    Roda o Prophet em todos os materiais com histórico suficiente (≥14 dias).
-    Retorna lista ordenada por risco_surto (ALTO primeiro).
-    """
     try:
         resultados = prever_demanda_todos(db)
         return resultados
@@ -115,12 +138,8 @@ def previsao_material(
     material_id: int,
     horizonte_dias: int = Query(56, ge=7, le=180, description="Dias de previsão (7–180)"),
     db: Session = Depends(get_db),
-    _user: Usuario = Depends(get_current_user),  # 🔒 JWT obrigatório
+    _user: Usuario = Depends(get_current_user),
 ):
-    """
-    Roda o Prophet para um único material pelo ID.
-    Retorna previsão de consumo + tendência + classificação de risco.
-    """
     try:
         resultado = prever_demanda_material(material_id, db, horizonte_dias=horizonte_dias)
         return resultado
@@ -130,23 +149,16 @@ def previsao_material(
 
 
 # =====================================================================
-# ENDPOINT 5 — Justificativa técnica via Gemini
+# ENDPOINT 5 — Justificativa técnica via Gemini (Legado / Chatbot Fase 5)
 # =====================================================================
 @router.post("/justificativa", summary="Gera justificativa técnica de compras via Gemini")
-@limiter.limit("10/minute")  # 🔒 Máx. 10 chamadas ao Gemini por IP por minuto (anti-custo)
+@limiter.limit("10/minute")
 def gerar_justificativa(
-    request: Request,  # necessário para o slowapi
+    request: Request,
     body: JustificativaRequest,
     db: Session = Depends(get_db),
-    current_user: Usuario = Depends(get_current_user),  # 🔒 JWT obrigatório
+    current_user: Usuario = Depends(get_current_user),
 ):
-    """
-    Recebe IDs de materiais, monta contexto com os dados do Motor de Estoque
-    e pede ao Gemini uma justificativa técnica formal para compras.
-
-    Retorna:
-        { "texto": "..." }
-    """
     api_key = os.getenv("GEMINI_API_KEY", "")
     if not api_key or api_key.startswith("COLE_"):
         raise HTTPException(
@@ -209,7 +221,6 @@ JUSTIFICATIVA:"""
             },
         )
         texto = response.text.strip()
-        logger.info("Gemini 3.6-flash chamado com sucesso para %d materiais.", len(coberturas))
     except ImportError:
         raise HTTPException(
             status_code=503,
@@ -242,10 +253,6 @@ def obter_previsao_epidemiologica(
     db: Session = Depends(get_db),
     _user: Usuario = Depends(get_current_user),
 ):
-    """
-    Retorna a análise e projeção epidemiológica via Prophet (SINAN), indicadores,
-    série temporal para gráfico, panorama textual e potencial impacto laboratorial.
-    """
     try:
         loc_list = [l.strip() for l in localidades.split(",") if l.strip()]
         if not loc_list:
@@ -284,10 +291,6 @@ def obter_cruzamento_estoque(
     db: Session = Depends(get_db),
     _user: Usuario = Depends(get_current_user),
 ):
-    """
-    Retorna o cruzamento detalhado entre a demanda projetada pela curva
-    epidemiológica e os saldos em estoque dos lotes ativos (FEFO).
-    """
     try:
         loc_list = [l.strip() for l in localidades.split(",") if l.strip()]
         resultado = prever_casos_epidemiologicos(
@@ -311,7 +314,209 @@ def obter_cruzamento_estoque(
 
 
 # =====================================================================
-# ENDPOINT 8 — Consulta Assistente Dinâmico (Sem LLM / Dados Reais)
+# ENDPOINT 8 — CRUD de Previsões Epidemiológicas Salvas (Fase 2.1)
+# =====================================================================
+@router.post("/previsoes-salvas", summary="Salva o snapshot completo da previsão epidemiológica e filtros")
+def salvar_previsao_epidemiologica(
+    body: SalvarPrevisaoRequest,
+    db: Session = Depends(get_db),
+    current_user: Usuario = Depends(get_current_user),
+):
+    """
+    Persiste todos os filtros ativos, métricas, grau de confiança e dados completos
+    do gráfico para consumo na tela de Alertas / Análise Algorítmica de Estoque.
+    """
+    try:
+        dados = body.dados_completos or {}
+        indicadores = dados.get("indicadores", {})
+        distribuicao = dados.get("distribuicao", {})
+        serie = dados.get("serie_temporal", [])
+
+        # Calcula casos previstos por doença a partir da distribuição, do body ou da série
+        deng_prev = int(body.casos_dengue_previstos or distribuicao.get("dengue", {}).get("casos", 0) or 0)
+        flu_prev = int(body.casos_influenza_previstos or distribuicao.get("influenza", {}).get("casos", 0) or 0)
+
+        if deng_prev == 0 and flu_prev == 0 and serie:
+            s_deng = sum(float(p.get("dengue_casos") or 0) for p in serie if p.get("tipo") == "previsto")
+            s_flu = sum(float(p.get("influenza_casos") or 0) for p in serie if p.get("tipo") == "previsto")
+            deng_prev = int(round(s_deng))
+            flu_prev = int(round(s_flu))
+
+        tot_prev = int(body.casos_previstos or indicadores.get("casos_previstos", deng_prev + flu_prev) or (deng_prev + flu_prev))
+        if body.doenca == "Dengue" and deng_prev == 0:
+            deng_prev = tot_prev
+        elif body.doenca == "Influenza" and flu_prev == 0:
+            flu_prev = tot_prev
+
+        loc_str = ", ".join(body.localidades) if body.localidades else "Santos"
+        agora_str = datetime.now().strftime("%d/%m/%Y %H:%M")
+
+        nome_final = (body.nome or body.titulo or "").strip()
+        if not nome_final:
+            nome_final = f"{body.doenca} · {loc_str} · {body.horizonte_semanas} sem ({agora_str})"
+
+        conf_val = body.grau_confianca or 80.0
+        if conf_val <= 1.0:
+            conf_val = round(conf_val * 100.0, 1)
+
+        nova = PrevisaoSalva(
+            nome=nome_final,
+            usuario_id=current_user.id if current_user else None,
+            doenca=body.doenca,
+            localidades=loc_str,
+            data_inicio=body.data_inicio,
+            data_fim=body.data_fim,
+            horizonte_semanas=body.horizonte_semanas,
+            periodo_historico_meses=body.periodo_historico_meses,
+            modo=body.modo,
+            faixa_etaria=body.faixa_etaria,
+            sexo=body.sexo,
+            fonte="SINAN",
+            grau_confianca=conf_val,
+            casos_recentes_str=str(body.casos_recentes if body.casos_recentes is not None else indicadores.get("casos_recentes", "0")),
+            casos_previstos_total=tot_prev,
+            casos_dengue_previstos=deng_prev,
+            casos_influenza_previstos=flu_prev,
+            mudanca_esperada_pct=float(body.mudanca_esperada_pct if body.mudanca_esperada_pct is not None else (indicadores.get("mudanca_esperada_pct", 0.0) or 0.0)),
+            pico_semana=str(indicadores.get("pico_semana", "SE --")),
+            pico_data=str(body.pico_data if body.pico_data is not None else indicadores.get("pico_data", "")),
+            pico_casos=int(body.pico_casos if body.pico_casos is not None else (indicadores.get("pico_casos", 0) or 0)),
+            tendencia=str(body.tendencia if body.tendencia is not None else indicadores.get("tendencia", "Estável")),
+            dados_completos_json=json.dumps(dados, ensure_ascii=False),
+        )
+        db.add(nova)
+        db.commit()
+        db.refresh(nova)
+
+        return {
+            "id": nova.id,
+            "nome": nova.nome,
+            "titulo": nova.nome,
+            "doenca": nova.doenca,
+            "localidades": nova.localidades,
+            "horizonte_semanas": nova.horizonte_semanas,
+            "casos_previstos": nova.casos_previstos_total,
+            "casos_previstos_total": nova.casos_previstos_total,
+            "tendencia": nova.tendencia,
+            "grau_confianca": nova.grau_confianca,
+            "criado_em": nova.criado_em.strftime("%d/%m/%Y %H:%M") if nova.criado_em else agora_str,
+        }
+    except Exception as exc:
+        logger.error("Erro ao salvar previsão epidemiológica: %s", exc)
+        raise HTTPException(status_code=500, detail=f"Erro ao salvar previsão: {str(exc)}")
+
+
+@router.get("/previsoes-salvas", summary="Lista todas as previsões epidemiológicas salvas")
+def listar_previsoes_salvas(
+    db: Session = Depends(get_db),
+    _user: Usuario = Depends(get_current_user),
+):
+    registros = db.query(PrevisaoSalva).order_by(PrevisaoSalva.criado_em.desc(), PrevisaoSalva.id.desc()).all()
+    return [
+        {
+            "id": r.id,
+            "nome": r.nome,
+            "titulo": r.nome,
+            "doenca": r.doenca,
+            "localidades": r.localidades,
+            "data_inicio": r.data_inicio,
+            "data_fim": r.data_fim,
+            "horizonte_semanas": r.horizonte_semanas,
+            "periodo_historico_meses": r.periodo_historico_meses,
+            "modo": r.modo,
+            "faixa_etaria": r.faixa_etaria,
+            "sexo": r.sexo,
+            "fonte": r.fonte,
+            "grau_confianca": r.grau_confianca,
+            "casos_recentes_str": r.casos_recentes_str,
+            "casos_previstos": r.casos_previstos_total,
+            "casos_previstos_total": r.casos_previstos_total,
+            "casos_dengue_previstos": r.casos_dengue_previstos,
+            "casos_influenza_previstos": r.casos_influenza_previstos,
+            "mudanca_esperada_pct": r.mudanca_esperada_pct,
+            "pico_semana": r.pico_semana,
+            "pico_data": r.pico_data,
+            "pico_casos": r.pico_casos,
+            "tendencia": r.tendencia,
+            "criado_em": r.criado_em.strftime("%d/%m/%Y %H:%M") if r.criado_em else "",
+        }
+        for r in registros
+    ]
+
+
+@router.get("/previsoes-salvas/{previsao_id}", summary="Obtém o snapshot completo de uma previsão salva")
+def obter_previsao_salva(
+    previsao_id: int,
+    db: Session = Depends(get_db),
+    _user: Usuario = Depends(get_current_user),
+):
+    r = db.query(PrevisaoSalva).filter(PrevisaoSalva.id == previsao_id).first()
+    if not r:
+        raise HTTPException(status_code=404, detail="Previsão salva não encontrada.")
+
+    try:
+        dados_completos = json.loads(r.dados_completos_json)
+    except Exception:
+        dados_completos = {}
+
+    return {
+        "id": r.id,
+        "nome": r.nome,
+        "titulo": r.nome,
+        "doenca": r.doenca,
+        "localidades": [l.strip() for l in r.localidades.split(",") if l.strip()],
+        "data_inicio": r.data_inicio,
+        "data_fim": r.data_fim,
+        "horizonte_semanas": r.horizonte_semanas,
+        "periodo_historico_meses": r.periodo_historico_meses,
+        "modo": r.modo,
+        "faixa_etaria": r.faixa_etaria,
+        "sexo": r.sexo,
+        "fonte": r.fonte,
+        "grau_confianca": r.grau_confianca,
+        "casos_previstos": r.casos_previstos_total,
+        "casos_previstos_total": r.casos_previstos_total,
+        "criado_em": r.criado_em.strftime("%d/%m/%Y %H:%M") if r.criado_em else "",
+        "dados_completos": dados_completos,
+    }
+
+
+@router.delete("/previsoes-salvas/{previsao_id}", summary="Remove uma previsão salva")
+def excluir_previsao_salva(
+    previsao_id: int,
+    db: Session = Depends(get_db),
+    _user: Usuario = Depends(get_current_user),
+):
+    r = db.query(PrevisaoSalva).filter(PrevisaoSalva.id == previsao_id).first()
+    if not r:
+        raise HTTPException(status_code=404, detail="Previsão salva não encontrada.")
+    db.delete(r)
+    db.commit()
+    return {"ok": True, "mensagem": "Previsão removida com sucesso."}
+
+
+# =====================================================================
+# ENDPOINT 9 — Análise Algorítmica de Estoque + Previsão Salva (Fase 2.3)
+# =====================================================================
+@router.get("/analise-estoque", summary="Análise algorítmica determinística de estoque cruzada com previsão salva")
+def obter_analise_estoque_algoritmica(
+    previsao_id: Optional[int] = Query(None, description="ID da Previsão Salva selecionada no Dropdown"),
+    db: Session = Depends(get_db),
+    _user: Usuario = Depends(get_current_user),
+):
+    """
+    Executa a análise matemática de estoque (Média Móvel Ponderada + Ponto de Reposição
+    + Estoque de Segurança + Demanda Epidemiológica da Previsão selecionada).
+    """
+    try:
+        return analisar_estoque_algoritmico(db=db, previsao_salva_id=previsao_id)
+    except Exception as exc:
+        logger.error("Erro na análise algorítmica de estoque: %s", exc)
+        raise HTTPException(status_code=500, detail=f"Erro ao calcular análise algorítmica: {str(exc)}")
+
+
+# =====================================================================
+# ENDPOINT 10 — Consulta Assistente Dinâmico (Sem LLM / Dados Reais)
 # =====================================================================
 class ConsultaAssistenteRequest(BaseModel):
     mensagem: str
@@ -323,10 +528,6 @@ def consulta_assistente(
     db: Session = Depends(get_db),
     _user: Usuario = Depends(get_current_user),
 ):
-    """
-    Recebe a pergunta do usuário, identifica o tema e retorna dados formatados
-    diretamente do banco de dados (Substitui as respostas estáticas).
-    """
     mensagem = body.mensagem.lower()
 
     if "vencer" in mensagem or "30 dias" in mensagem or "validade" in mensagem:

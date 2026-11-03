@@ -1,14 +1,17 @@
 """
 Laurus AI — Modelos ORM (SQLAlchemy)
 ====================================
-7 tabelas principais + 1 tabela associativa (Many-to-Many):
+9 tabelas principais + 1 tabela associativa (Many-to-Many):
   1. Usuario
   2. Fornecedor
   3. Categoria
+  3b. LocalArmazenamento
   4. Material
   5. Lote
   6. MovimentacaoEstoque
   7. Doenca
+  8. DadoEpidemiologico
+  9. PrevisaoSalva
   +  materiais_doencas (associativa)
 """
 
@@ -222,8 +225,47 @@ class DadoEpidemiologico(Base):
     casos_0_19 = Column(Integer, default=0, nullable=False)
     casos_20_59 = Column(Integer, default=0, nullable=False)
     casos_60_mais = Column(Integer, default=0, nullable=False)
-    fonte = Column(String(50), default="DATASUS", nullable=False)
+    fonte = Column(String(50), default="SINAN", nullable=False)
     criado_em = Column(DateTime, default=func.now())
 
     # Relacionamento
     doenca = relationship("Doenca")
+
+
+# =====================================================================
+# 9. PREVISOES SALVAS (Snapshot Completo do Gráfico + Filtros Epidemiológicos)
+# =====================================================================
+class PrevisaoSalva(Base):
+    __tablename__ = "previsoes_salvas"
+
+    id = Column(Integer, primary_key=True, index=True)
+    nome = Column(String(200), nullable=False)
+    usuario_id = Column(Integer, ForeignKey("usuarios.id"), nullable=True)
+
+    # Filtros aplicados no momento do salvamento
+    doenca = Column(String(50), nullable=False, index=True)          # "Dengue" | "Influenza" | "Ambas"
+    localidades = Column(String(500), nullable=False)               # ex: "Santos, São Vicente"
+    data_inicio = Column(String(20), nullable=True)                 # ex: "2024-01"
+    data_fim = Column(String(20), nullable=True)                    # ex: "2026-09"
+    horizonte_semanas = Column(Integer, nullable=False, default=8)
+    periodo_historico_meses = Column(Integer, nullable=False, default=24)
+    modo = Column(String(30), nullable=False, default="ampliado")
+    faixa_etaria = Column(String(30), nullable=False, default="todas")
+    sexo = Column(String(20), nullable=False, default="todos")
+    fonte = Column(String(50), nullable=False, default="SINAN")
+    grau_confianca = Column(Float, nullable=False, default=80.0)    # Intervalo de confiança Prophet (80%)
+
+    # Indicadores consolidados para consulta rápida na tela de Alertas
+    casos_recentes_str = Column(String(50), nullable=True)
+    casos_previstos_total = Column(Integer, nullable=False, default=0)
+    casos_dengue_previstos = Column(Integer, nullable=False, default=0)
+    casos_influenza_previstos = Column(Integer, nullable=False, default=0)
+    mudanca_esperada_pct = Column(Float, nullable=False, default=0.0)
+    pico_semana = Column(String(20), nullable=True)
+    pico_data = Column(String(20), nullable=True)
+    pico_casos = Column(Integer, nullable=False, default=0)
+    tendencia = Column(String(50), nullable=True)
+
+    # Payload completo do gráfico e séries (JSON serializado)
+    dados_completos_json = Column(Text, nullable=False)
+    criado_em = Column(DateTime, default=func.now())

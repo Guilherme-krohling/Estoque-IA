@@ -218,7 +218,7 @@ export const usuariosApi = {
 };
 
 // =====================================================================
-// IA — Motor de Estoque + Gemini + Prophet
+// IA & ANÁLISE ALGORÍTMICA — Motor de Estoque + Prophet + Snapshots
 // =====================================================================
 export const iaApi = {
   /** GET /api/ia/cobertura/{material_id} — cobertura de um material */
@@ -273,6 +273,49 @@ export const iaApi = {
     return fetchApi<any>(`/ia/previsao-epidemiologica?${query.toString()}`);
   },
 
+  /** POST /api/ia/previsoes-salvas — salva um snapshot completo da previsão epidemiológica */
+  salvarPrevisao: (body: {
+    titulo: string;
+    doenca: string;
+    localidades: string[];
+    data_inicio: string;
+    data_fim: string;
+    horizonte_semanas: number;
+    modo: string;
+    faixa_etaria: string;
+    sexo: string;
+    casos_recentes: number;
+    casos_previstos: number;
+    casos_dengue_previstos: number;
+    casos_influenza_previstos: number;
+    mudanca_esperada_pct: number;
+    pico_data?: string | null;
+    pico_casos: number;
+    tendencia: string;
+    grau_confianca: number;
+    dados_completos: any;
+  }) =>
+    fetchApi<any>("/ia/previsoes-salvas", {
+      method: "POST",
+      body: JSON.stringify(body),
+    }),
+
+  /** GET /api/ia/previsoes-salvas — lista as previsões epidemiológicas salvas */
+  listarPrevisoesSalvas: () => fetchApi<any[]>("/ia/previsoes-salvas"),
+
+  /** GET /api/ia/previsoes-salvas/{id} — retorna o snapshot completo de uma previsão salva */
+  obterPrevisaoSalva: (id: number) => fetchApi<any>(`/ia/previsoes-salvas/${id}`),
+
+  /** DELETE /api/ia/previsoes-salvas/{id} — remove uma previsão salva */
+  excluirPrevisaoSalva: (id: number) =>
+    fetchApi<any>(`/ia/previsoes-salvas/${id}`, { method: "DELETE" }),
+
+  /** GET /api/ia/analise-estoque — análise matemática determinística (MMP + Regressão + Previsão Salva) */
+  analiseEstoqueAlgoritmica: (previsaoId?: number | null) =>
+    fetchApi<any>(
+      `/ia/analise-estoque${previsaoId ? `?previsao_id=${previsaoId}` : ""}`
+    ),
+
   /** GET /api/ia/cruzamento — cruzamento direto de casos com estoque */
   cruzamentoEstoque: (params: {
     doenca?: string;
@@ -295,4 +338,3 @@ export const iaApi = {
       body: JSON.stringify(data),
     }),
 };
-

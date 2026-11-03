@@ -3,6 +3,7 @@
 import { useEffect, useState, useMemo, useRef } from "react";
 import Link from "next/link";
 import { iaApi } from "@/lib/api";
+import { showToast } from "@/components/Toast";
 import {
   ResponsiveContainer,
   ComposedChart,
@@ -189,7 +190,28 @@ export default function PrevisaoEpidemiologicaPage() {
   const [dados, setDados] = useState<any>(null);
   const [erro, setErro] = useState<string | null>(null);
 
+  // Estados de Previsões Salvas (Snapshots)
+  const [previsoesSalvas, setPrevisoesSalvas] = useState<any[]>([]);
+  const [previsaoCarregadaId, setPrevisaoCarregadaId] = useState<string>("");
+  const [modalSalvarAberto, setModalSalvarAberto] = useState(false);
+  const [tituloPrevisao, setTituloPrevisao] = useState("");
+  const [salvandoPrevisao, setSalvandoPrevisao] = useState(false);
+  const carregandoSnapshotRef = useRef(false);
+
   const dropdownRef = useRef<HTMLDivElement>(null);
+
+  const carregarListaPrevisoes = async () => {
+    try {
+      const lista = await iaApi.listarPrevisoesSalvas();
+      setPrevisoesSalvas(lista || []);
+    } catch {
+      /* silencioso se offline */
+    }
+  };
+
+  useEffect(() => {
+    carregarListaPrevisoes();
+  }, []);
 
   // Estimativa de tempo do Prophet (Ambas treina 2 modelos; doença única treina 1)
   const tempoEstimadoSegundos = doenca === "Ambas" ? 4 : 2;
@@ -229,6 +251,11 @@ export default function PrevisaoEpidemiologicaPage() {
 
   // Busca dados na API ao alterar qualquer filtro
   useEffect(() => {
+    if (carregandoSnapshotRef.current) {
+      carregandoSnapshotRef.current = false;
+      return;
+    }
+
     let cancelado = false;
     setLoading(true);
     setErro(null);
@@ -265,6 +292,83 @@ export default function PrevisaoEpidemiologicaPage() {
       cancelado = true;
     };
   }, [doenca, localidades, horizonteSemanas, periodoHistoricoMeses, periodoInicio, periodoFim, modo, faixaEtaria, sexo]);
+
+  // Abre o modal de salvar previsão com sugestão automática de título
+  const handleAbrirModalSalvar = () => {
+    const locResumo = localidades.length > 2 ? `${localidades[0]} +${localidades.length - 1}` : localidades.join(", ");
+    const sugestao = `${doenca} · ${locResumo} · ${horizonteSemanas} sem (${periodoInicio} a ${periodoFim})`;
+    setTituloPrevisao(sugestao);
+    setModalSalvarAberto(true);
+  };
+
+  // Salva o snapshot completo da previsão epidemiológica no banco
+  const handleSalvarPrevisao = async () => {
+    if (!dados) return;
+    setSalvandoPrevisao(true);
+    try {
+      const ind = dados.indicadores || {};
+      const resultado = await iaApi.salvarPrevisao({
+        titulo: tituloPrevisao.trim() || `${doenca} · ${localidades.join(", ")} · ${horizonteSemanas} sem`,
+        doenca,
+        localidades,
+        data_inicio: periodoInicio,
+        data_fim: periodoFim,
+        horizonte_semanas: horizonteSemanas,
+        modo,
+        faixa_etaria: faixaEtaria,
+        sexo,
+        casos_recentes: ind.casos_recentes ?? 0,
+        casos_previstos: ind.casos_previstos ?? distribuicaoLocal.total_previsto,
+        casos_dengue_previstos: distribuicaoLocal.dengue.casos,
+        casos_influenza_previstos: distribuicaoLocal.influenza.casos,
+        mudanca_esperada_pct: ind.mudanca_esperada_pct ?? 0,
+        pico_data: ind.pico_data ?? null,
+        pico_casos: ind.pico_casos ?? 0,
+        tendencia: ind.tendencia ?? "Estável",
+        grau_confianca: 0.80,
+        dados_completos: dados,
+      });
+      await carregarListaPrevisoes();
+      if (resultado?.id) {
+        setPrevisaoCarregadaId(String(resultado.id));
+      }
+      setModalSalvarAberto(false);
+      showToast("Previsão epidemiológica salva com sucesso!", "success");
+    } catch (err: any) {
+      showToast(err.message || "Erro ao salvar previsão epidemiológica.", "error");
+    } finally {
+      setSalvandoPrevisao(false);
+    }
+  };
+
+  // Carrega uma previsão salva restaurando filtros e série do gráfico
+  const handleSelecionarPrevisaoSalva = async (idStr: string) => {
+    setPrevisaoCarregadaId(idStr);
+    if (!idStr) return;
+    try {
+      const snap = await iaApi.obterPrevisaoSalva(Number(idStr));
+      carregandoSnapshotRef.current = true;
+      if (snap.doenca === "Dengue" || snap.doenca === "Influenza" || snap.doenca === "Ambas") {
+        setDoenca(snap.doenca);
+      }
+      if (Array.isArray(snap.localidades) && snap.localidades.length > 0) {
+        setLocalidades(snap.localidades);
+      }
+      if (snap.data_inicio) setPeriodoInicio(snap.data_inicio);
+      if (snap.data_fim) setPeriodoFim(snap.data_fim);
+      if (snap.horizonte_semanas) setHorizonteSemanas(Number(snap.horizonte_semanas));
+      if (snap.modo === "ampliado" || snap.modo === "conservador") setModo(snap.modo);
+      if (snap.faixa_etaria) setFaixaEtaria(snap.faixa_etaria);
+      if (snap.sexo) setSexo(snap.sexo);
+      if (snap.dados_completos) {
+        setDados(snap.dados_completos);
+        setLoading(false);
+      }
+      showToast(`Snapshot "${snap.titulo}" carregado!`, "info");
+    } catch (err: any) {
+      showToast(err.message || "Erro ao carregar previsão salva.", "error");
+    }
+  };
 
   // Manipulação de seleção múltipla no dropdown
   const toggleLocalidade = (locId: string) => {
@@ -416,7 +520,35 @@ export default function PrevisaoEpidemiologicaPage() {
           </p>
         </div>
 
-        <div className="flex items-center gap-3">
+        <div className="flex flex-wrap items-center gap-3">
+          {previsoesSalvas.length > 0 && (
+            <div className="flex flex-col">
+              <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1">
+                Previsões Salvas
+              </label>
+              <select
+                value={previsaoCarregadaId}
+                onChange={(e) => handleSelecionarPrevisaoSalva(e.target.value)}
+                className="bg-slate-900/90 border border-slate-700/70 text-xs text-slate-200 rounded-xl px-3 py-2 focus:outline-none focus:border-emerald-500 max-w-[260px]"
+              >
+                <option value="">Carregar previsão salva...</option>
+                {previsoesSalvas.map((p) => (
+                  <option key={p.id} value={String(p.id)}>
+                    {p.titulo} ({Number(p.casos_previstos || 0).toLocaleString("pt-BR")} casos)
+                  </option>
+                ))}
+              </select>
+            </div>
+          )}
+
+          <button
+            onClick={handleAbrirModalSalvar}
+            disabled={loading || !dados}
+            className="px-4 py-2.5 bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-400 hover:to-teal-500 disabled:opacity-50 disabled:cursor-not-allowed text-white text-xs font-bold rounded-xl shadow-lg shadow-emerald-500/20 transition-all"
+          >
+            Salvar Previsão
+          </button>
+
           <div className="glass p-3 px-4 rounded-xl border border-slate-700/40 bg-slate-900/50 text-right">
             <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Última Atualização</p>
             <p className="text-xs font-semibold text-slate-200 mt-0.5">
@@ -1179,6 +1311,101 @@ export default function PrevisaoEpidemiologicaPage() {
           Cobertura: {textoPeríodo} · {localidades.join(", ")}
         </span>
       </div>
+
+      {/* =====================================================================
+          MODAL — SALVAR PREVISÃO (SNAPSHOT COMPLETO)
+      ===================================================================== */}
+      {modalSalvarAberto && (
+        <div className="fixed inset-0 z-[120] bg-black/70 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="bg-slate-900 border border-slate-700 rounded-2xl max-w-lg w-full p-6 space-y-5 shadow-2xl animate-scale-in">
+            <div className="flex justify-between items-center border-b border-slate-800 pb-3">
+              <div>
+                <h3 className="text-base font-bold text-white">Salvar Previsão Epidemiológica</h3>
+                <p className="text-xs text-slate-400 mt-0.5">
+                  Salva todos os filtros ativos e a série completa do gráfico para uso na análise algorítmica de alertas.
+                </p>
+              </div>
+              <button
+                onClick={() => setModalSalvarAberto(false)}
+                className="text-slate-400 hover:text-white text-lg font-bold"
+              >
+                ✕
+              </button>
+            </div>
+
+            <div className="space-y-4">
+              <div>
+                <label className="block text-xs font-semibold text-slate-300 mb-1.5">
+                  Identificação da Previsão
+                </label>
+                <input
+                  type="text"
+                  value={tituloPrevisao}
+                  onChange={(e) => setTituloPrevisao(e.target.value)}
+                  placeholder="Ex: Dengue · Santos · Próximas 8 semanas"
+                  className="w-full px-3.5 py-2.5 bg-slate-950 border border-slate-700 rounded-xl text-xs text-white focus:outline-none focus:border-emerald-500"
+                />
+              </div>
+
+              <div className="p-3.5 bg-slate-950/80 rounded-xl border border-slate-800 space-y-2 text-xs">
+                <p className="font-bold text-emerald-400 uppercase tracking-wider text-[10px]">
+                  Resumo do Snapshot a ser salvo
+                </p>
+                <div className="grid grid-cols-2 gap-2 text-slate-300">
+                  <div>
+                    <span className="text-slate-500">Doença:</span>{" "}
+                    <strong className="text-white">{doenca}</strong>
+                  </div>
+                  <div>
+                    <span className="text-slate-500">Horizonte:</span>{" "}
+                    <strong className="text-white">{horizonteSemanas} semanas</strong>
+                  </div>
+                  <div className="col-span-2">
+                    <span className="text-slate-500">Localidades:</span>{" "}
+                    <strong className="text-white">{localidades.join(", ")}</strong>
+                  </div>
+                  <div>
+                    <span className="text-slate-500">Período:</span>{" "}
+                    <strong className="text-white">{textoPeríodo}</strong>
+                  </div>
+                  <div>
+                    <span className="text-slate-500">Modo / Perfil:</span>{" "}
+                    <strong className="text-white">
+                      {modo} · {faixaEtaria} · {sexo}
+                    </strong>
+                  </div>
+                  <div>
+                    <span className="text-slate-500">Casos Previstos:</span>{" "}
+                    <strong className="text-emerald-400">
+                      {(dados?.indicadores?.casos_previstos ?? distribuicaoLocal.total_previsto).toLocaleString("pt-BR")}
+                    </strong>
+                  </div>
+                  <div>
+                    <span className="text-slate-500">Confiança Prophet:</span>{" "}
+                    <strong className="text-cyan-400">80% (IC 80%)</strong>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div className="flex justify-end gap-3 border-t border-slate-800 pt-4">
+              <button
+                onClick={() => setModalSalvarAberto(false)}
+                className="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-semibold rounded-xl transition-colors"
+              >
+                Cancelar
+              </button>
+              <button
+                onClick={handleSalvarPrevisao}
+                disabled={salvandoPrevisao}
+                className="px-4 py-2 bg-emerald-500 hover:bg-emerald-400 disabled:opacity-50 text-white text-xs font-bold rounded-xl transition-colors"
+              >
+                {salvandoPrevisao ? "Salvando..." : "Salvar Previsão"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

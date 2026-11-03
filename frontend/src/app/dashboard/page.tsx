@@ -33,7 +33,7 @@ export default function DashboardPage() {
   const [alertasVencimento, setAlertasVencimento] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
 
-  // IA — Motor de Estoque (dados reais quando endpoint existir)
+  // Motor Algorítmico de Estoque
   const [iaData, setIaData] = useState<CoberturaIA[]>([]);
   const [iaDisponivel, setIaDisponivel] = useState(false);
   const [isRefreshingIA, setIsRefreshingIA] = useState(false);
@@ -54,12 +54,12 @@ export default function DashboardPage() {
     setIsRefreshingIA(true);
     carregarDadosIA().finally(() => {
       setIsRefreshingIA(false);
-      showToast("Insights Preditivos atualizados!", "success");
+      showToast("Análise algorítmica atualizada!", "success");
     });
   };
 
   useEffect(() => {
-    carregarDadosIA(); // tenta carregar dados reais do motor de estoque
+    carregarDadosIA(); // carrega dados reais do motor algorítmico de estoque
 
     Promise.all([
       materiaisApi.listar(),
@@ -81,13 +81,13 @@ export default function DashboardPage() {
         });
 
         setUltimasMovimentacoes(movimentacoes.slice(0, 5));
-        setAlertasVencimento([...vencidos, ...vencidos].slice(0, 5));
+        setAlertasVencimento([...vencidos, ...vencendo].slice(0, 5));
       })
       .catch(console.error)
       .finally(() => setLoading(false));
   }, []);
 
-  // Texto do banner de IA: dados reais ou demonstração
+  // Texto do banner algorítmico: dados reais ou demonstração
   const iaMaterialCritico = iaData[0] ?? null;
   const iaBannerAlerta = iaDisponivel && iaMaterialCritico
     ? `⚠️ RISCO ${iaMaterialCritico.risco}: ${iaMaterialCritico.nome.toUpperCase()} — COBERTURA: ${iaMaterialCritico.cobertura_dias ?? "?"} DIAS`
@@ -110,23 +110,23 @@ export default function DashboardPage() {
         <p className="text-slate-400 mt-1">Painel de controle do seu laboratório.</p>
       </div>
 
-      {/* Banner Preditivo de IA (Laurus AI) */}
+      {/* Banner de Análise Algorítmica de Estoque */}
       <div className="relative overflow-hidden p-6 rounded-2xl bg-gradient-to-r from-slate-900 via-slate-900/90 to-purple-950/40 border border-emerald-500/30 shadow-xl shadow-emerald-950/20">
         <div className="absolute top-0 right-0 w-96 h-96 bg-emerald-500/10 rounded-full blur-3xl -z-10 pointer-events-none" />
 
         <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 border-b border-slate-700/50 pb-4 mb-4">
           <div className="flex items-center gap-3">
             <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-emerald-400 to-teal-600 flex items-center justify-center text-white text-xl shadow-lg shadow-emerald-500/20">
-              🤖
+              📐
             </div>
             <div>
               <div className="flex items-center gap-2">
-                <h2 className="font-bold text-white text-lg">ASSISTENTE PREDITIVO LAURUS AI (IA)</h2>
+                <h2 className="font-bold text-white text-lg">MOTOR DE ANÁLISE ALGORÍTMICA DE ESTOQUE</h2>
                 <span className="px-2 py-0.5 text-[10px] font-extrabold uppercase bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 rounded-md">
-                  IA Preditiva Ativa
+                  Cálculo Determinístico Ativo
                 </span>
               </div>
-              <p className="text-xs text-slate-400">Análise histórica do estoque vs. sazonalidade epidemiológica da região</p>
+              <p className="text-xs text-slate-400">Média Móvel Ponderada + Ponto de Reposição + Sazonalidade Epidemiológica</p>
             </div>
           </div>
           <button
@@ -135,7 +135,7 @@ export default function DashboardPage() {
             className="px-3.5 py-2 bg-slate-800/80 hover:bg-slate-700 text-slate-300 hover:text-white border border-slate-700 text-xs font-semibold rounded-xl transition-all duration-200 flex items-center gap-2"
           >
             <span className={isRefreshingIA ? "animate-spin" : ""}>🔄</span>
-            {isRefreshingIA ? "Analisando estoque..." : "Atualizar Insights"}
+            {isRefreshingIA ? "Recalculando estoque..." : "Atualizar Análise"}
           </button>
         </div>
 
@@ -159,10 +159,10 @@ export default function DashboardPage() {
 
           <div className="flex flex-wrap items-center gap-3 pt-2">
             <Link
-              href="/dashboard/reposicao"
+              href="/dashboard/alertas"
               className="px-4 py-2 bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-400 hover:to-teal-500 text-white text-xs font-bold rounded-xl shadow-lg shadow-emerald-500/20 transition-all flex items-center gap-2"
             >
-              🛒 Gerar Sugestão de Compra
+              📐 Ver Análise Algorítmica Completa
             </Link>
             <button
               onClick={() => setShowDetailsModal(true)}
@@ -263,7 +263,7 @@ export default function DashboardPage() {
         ))}
       </div>
 
-      {/* Painéis Principais - Conforme Print 1 */}
+      {/* Painéis Principais */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         {/* Painel Esquerdo: Últimas Movimentações */}
         <div className="glass p-6 rounded-2xl border border-slate-700/50">

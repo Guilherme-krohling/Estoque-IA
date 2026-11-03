@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState, useMemo } from "react";
-import { relatoriosApi, iaApi } from "@/lib/api";
+import { relatoriosApi } from "@/lib/api";
 import { showToast } from "@/components/Toast";
 
 export default function ReposicaoPage() {
@@ -95,8 +95,8 @@ export default function ReposicaoPage() {
 
     if (sortColumn) {
       result.sort((a, b) => {
-        let valA = a[sortColumn];
-        let valB = b[sortColumn];
+        const valA = a[sortColumn];
+        const valB = b[sortColumn];
 
         if (valA == null) return 1;
         if (valB == null) return -1;
@@ -107,7 +107,6 @@ export default function ReposicaoPage() {
         }
 
         // Strings: localeCompare com numeric:true garante ordem natural
-        // (1, 2, 9, 10, 20) em vez de lexicográfica (1, 10, 2, 20, 9)
         const cmp = String(valA).localeCompare(String(valB), "pt-BR", {
           numeric: true,
           sensitivity: "base",
@@ -123,43 +122,9 @@ export default function ReposicaoPage() {
   const totalBaixos = itensProcessados.filter((i) => i.status === "Baixo").length;
   const totalFaltantes = itensProcessados.filter((i) => i.status === "Faltante").length;
 
-  // Estados da IA de Compras
-  const [showIAModal, setShowIAModal] = useState(false);
-  const [generatingIA, setGeneratingIA] = useState(false);
-  const [textoGemini, setTextoGemini] = useState<string | null>(null);
-  const [erroGemini, setErroGemini] = useState<string | null>(null);
-
-  const handleOpenIAModal = async () => {
-    setShowIAModal(true);
-    setGeneratingIA(true);
-    setTextoGemini(null);
-    setErroGemini(null);
-
-    try {
-      const ids = itensProcessados.map((i: any) => i.material_id).filter(Boolean).slice(0, 10);
-      const resultado = await iaApi.gerarJustificativa({
-        material_ids: ids,
-        doenca_nome: "Doenças sazonais (Influenza, Dengue, VSR)",
-        contexto_epidemiologico: "Período de maior circulação de patógenos respiratórios na região Sudeste.",
-      });
-      setTextoGemini(resultado.texto);
-    } catch (err: any) {
-      setErroGemini(err.message || "Erro ao consultar o Gemini.");
-    } finally {
-      setGeneratingIA(false);
-    }
-  };
-
-  const handleCopyJustificativa = () => {
-    const conteudo = textoGemini ||
-      `JUSTIFICATIVA TÉCNICA DE COMPRAS \u2014 LAURUS AI\nData: ${new Date().toLocaleDateString("pt-BR")}\n\n${itensProcessados.map(i => `- ${i.nome}: Saldo ${i.saldo_atual} | Mín: ${i.estoque_minimo} | Comprar +${i.sugestao_comprar}`).join("\n")}`;
-    navigator.clipboard.writeText(conteudo);
-    showToast("Justificativa copiada para a área de transferência!", "success");
-  };
-
   return (
     <div className="animate-fade-in space-y-6">
-      {/* Header Conforme Print 3 */}
+      {/* Header */}
       <div className="glass p-6 rounded-2xl border border-slate-700/50 flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
         <div>
           <div className="inline-block px-3 py-1 bg-amber-500/10 text-amber-400 text-xs font-semibold rounded-full border border-amber-500/20 mb-2">
@@ -171,13 +136,6 @@ export default function ReposicaoPage() {
           </p>
         </div>
         <div className="flex flex-wrap items-center gap-3">
-          <button
-            onClick={handleOpenIAModal}
-            disabled={generatingIA}
-            className="px-4 py-2.5 bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-400 hover:to-teal-500 disabled:opacity-50 disabled:cursor-not-allowed text-white text-xs font-bold rounded-xl shadow-lg shadow-emerald-500/20 transition-all flex items-center gap-2"
-          >
-            <span>🤖</span> Gerar Sugestão de Compras com IA
-          </button>
           <button
             onClick={handleExportCSV}
             className="px-4 py-2.5 bg-slate-800 hover:bg-slate-700 text-white text-xs font-semibold rounded-xl border border-slate-700 transition-colors flex items-center gap-2 shadow-sm"
@@ -393,108 +351,6 @@ export default function ReposicaoPage() {
           </div>
         )}
       </div>
-
-      {/* Modal de Sugestão de Compras por IA */}
-      {showIAModal && (
-        <div className="fixed inset-0 z-50 bg-black/70 backdrop-blur-sm flex items-center justify-center p-4">
-          <div className="bg-slate-900 border border-slate-700 rounded-2xl max-w-2xl w-full p-6 space-y-5 shadow-2xl animate-scale-in">
-            <div className="flex justify-between items-center border-b border-slate-800 pb-3">
-              <div className="flex items-center gap-2">
-                <span className="text-xl">🤖</span>
-                <h3 className="text-lg font-bold text-white">Análise Preditiva & Justificativa Técnica (Gemini)</h3>
-              </div>
-              <button
-                onClick={() => setShowIAModal(false)}
-                className="text-slate-400 hover:text-white text-lg font-bold"
-              >
-                ✕
-              </button>
-            </div>
-
-            {generatingIA ? (
-              <div className="flex flex-col items-center justify-center py-12 space-y-3">
-                <div className="w-10 h-10 border-4 border-emerald-400 border-t-transparent rounded-full animate-spin" />
-                <p className="text-sm font-semibold text-slate-300">Gemini está analisando o saldo dos materiais...</p>
-                <p className="text-xs text-slate-500">Cruzando estoque mínimo, fabricante e riscos de desabastecimento.</p>
-              </div>
-            ) : erroGemini ? (
-              <div className="p-4 bg-red-950/40 border border-red-500/30 rounded-xl text-sm text-red-300 space-y-2">
-                <p className="font-semibold">Erro ao consultar o Gemini:</p>
-                <p className="text-xs">{erroGemini}</p>
-                <p className="text-xs text-slate-500">Verifique se o backend está rodando e se a GEMINI_API_KEY está configurada no .env</p>
-              </div>
-            ) : textoGemini ? (
-              <div className="space-y-4">
-                <div className="p-4 bg-slate-950/80 rounded-xl border border-slate-800 font-mono text-xs text-slate-300 leading-relaxed whitespace-pre-wrap">
-                  <div className="text-emerald-400 font-bold border-b border-slate-800 pb-2 mb-3">
-                    📋 JUSTIFICATIVA TÉCNICA FORMAL PARA COMPRAS (Gerada pelo Gemini)
-                  </div>
-                  {textoGemini}
-                </div>
-                <div className="flex items-center justify-between text-xs text-slate-400 bg-emerald-950/30 border border-emerald-500/20 px-3 py-2 rounded-lg">
-                  <span className="flex items-center gap-1.5 text-emerald-400">
-                    <span>✨</span> Modelo: Gemini 1.5 Flash (Prompting Biomédico)
-                  </span>
-                  <span>100% Formatado para Cotações</span>
-                </div>
-              </div>
-            ) : (
-              <div className="space-y-4">
-                <div className="p-4 bg-slate-950/80 rounded-xl border border-slate-800 space-y-3 font-mono text-xs text-slate-300">
-                  <div className="text-emerald-400 font-bold border-b border-slate-800 pb-2">
-                    📋 JUSTIFICATIVA TÉCNICA FORMAL PARA COMPRAS
-                  </div>
-                  <p><strong>Solicitante:</strong> Laboratório de Análises Clínicas / Diagnóstico Biomédico</p>
-                  <p><strong>Data:</strong> {new Date().toLocaleDateString("pt-BR")}</p>
-
-                  <div className="border-t border-slate-800/80 pt-2 space-y-1">
-                    <p className="text-amber-400 font-semibold">1. MATERIAIS CRÍTICOS A REPOR:</p>
-                    {itensProcessados.length > 0 ? (
-                      itensProcessados.map((item, idx) => (
-                        <p key={idx} className="pl-2">
-                          • {item.nome} (Ref: {item.codigo_catalogo || "N/A"}): Saldo {item.saldo_atual} | Mín: {item.estoque_minimo} | <span className="text-cyan-400 font-bold">Comprar +{item.sugestao_comprar}</span>
-                        </p>
-                      ))
-                    ) : (
-                      <p className="pl-2 text-slate-500">• Nenhum material com falta crítica no momento.</p>
-                    )}
-                  </div>
-
-                  <div className="border-t border-slate-800/80 pt-2 space-y-1">
-                    <p className="text-amber-400 font-semibold">2. PARECER BIOMÉDICO DA IA:</p>
-                    <p className="text-slate-300 leading-relaxed">
-                      &quot;A ausência ou redução extrema destes reagentes impacta diretamente a rotina de diagnósticos laboratoriais. Recomenda-se a autorização e emissão do pedido de compra imediato junto aos fornecedores cadastrados para evitar a paralisação de análises.&quot;
-                    </p>
-                  </div>
-                </div>
-
-                <div className="flex items-center justify-between text-xs text-slate-400 bg-emerald-950/30 border border-emerald-500/20 px-3 py-2 rounded-lg">
-                  <span className="flex items-center gap-1.5 text-emerald-400">
-                    <span>✨</span> Modelo: Gemini 1.5 Flash (Prompting Biomédico)
-                  </span>
-                  <span>100% Formatado para Cotações</span>
-                </div>
-              </div>
-            )}
-
-            <div className="flex justify-end gap-3 border-t border-slate-800 pt-4">
-              <button
-                onClick={() => setShowIAModal(false)}
-                className="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-semibold rounded-xl transition-colors"
-              >
-                Fechar
-              </button>
-              <button
-                onClick={handleCopyJustificativa}
-                disabled={generatingIA}
-                className="px-4 py-2 bg-emerald-500 hover:bg-emerald-400 text-white text-xs font-semibold rounded-xl transition-colors flex items-center gap-2"
-              >
-                📋 Copiar Texto Completo
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   );
 }

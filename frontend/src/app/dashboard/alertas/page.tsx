@@ -10,11 +10,14 @@ export default function AlertasPage() {
   const [vencidos, setVencidos] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
 
-  // IA Preditiva — Prophet
-  const [previsoes, setPrevisoes] = useState<any[]>([]);
-  const [loadingIA, setLoadingIA] = useState(true);
-  const [iaDisponivel, setIaDisponivel] = useState(false);
+  // Motor Algorítmico e Previsões Epidemiológicas Salvas
+  const [previsoesSalvas, setPrevisoesSalvas] = useState<any[]>([]);
+  const [previsaoSelecionadaId, setPrevisaoSelecionadaId] = useState<number | null>(null);
+  const [analiseAlgoritmica, setAnaliseAlgoritmica] = useState<any>(null);
+  const [loadingAlgoritmo, setLoadingAlgoritmo] = useState(true);
+  const [mostrarTodosMateriais, setMostrarTodosMateriais] = useState(false);
 
+  // Carrega relatórios de vencimento/estoque crítico + lista de previsões salvas
   useEffect(() => {
     Promise.all([
       relatoriosApi.estoqueCritico(),
@@ -29,22 +32,51 @@ export default function AlertasPage() {
       .catch(console.error)
       .finally(() => setLoading(false));
 
-    // Carrega previsões epidemiológicas do Prophet
     iaApi
-      .previsaoGeral()
-      .then((dados) => {
-        // Filtra materiais com risco ALTO ou MODERADO e consumo > 0 (Ajuste 2 - dupla segurança)
-        const relevantes = dados.filter(
-          (d: any) => (d.risco_surto === "ALTO" || d.risco_surto === "MODERADO") && d.consumo_previsto_total > 0
-        );
-        setPrevisoes(relevantes);
-        setIaDisponivel(true);
+      .listarPrevisoesSalvas()
+      .then((lista) => {
+        const arr = lista || [];
+        setPrevisoesSalvas(arr);
+        if (arr.length > 0) {
+          setPrevisaoSelecionadaId(arr[0].id);
+        } else {
+          setPrevisaoSelecionadaId(null);
+        }
       })
       .catch(() => {
-        setIaDisponivel(false); // fallback: mostra mensagem de indisponibilidade
-      })
-      .finally(() => setLoadingIA(false));
+        setPrevisoesSalvas([]);
+        setPrevisaoSelecionadaId(null);
+      });
   }, []);
+
+  // Recalcula a análise matemática determinística sempre que a previsão selecionada mudar
+  useEffect(() => {
+    let cancelado = false;
+    setLoadingAlgoritmo(true);
+
+    iaApi
+      .analiseEstoqueAlgoritmica(previsaoSelecionadaId)
+      .then((res) => {
+        if (!cancelado) {
+          setAnaliseAlgoritmica(res);
+        }
+      })
+      .catch((err) => {
+        console.error("Erro na análise algorítmica de estoque:", err);
+        if (!cancelado) {
+          setAnaliseAlgoritmica(null);
+        }
+      })
+      .finally(() => {
+        if (!cancelado) {
+          setLoadingAlgoritmo(false);
+        }
+      });
+
+    return () => {
+      cancelado = true;
+    };
+  }, [previsaoSelecionadaId]);
 
   const totalVencimento60 = vencendo.length;
   const totalVencidos = vencidos.length;
@@ -54,17 +86,24 @@ export default function AlertasPage() {
 
   const listaVencimentos = [...vencidos, ...vencendo];
 
+  const materiaisAnalisados: any[] = analiseAlgoritmica?.materiais || [];
+  const materiaisEmAlerta = materiaisAnalisados.filter(
+    (m) => m.risco === "ALTO" || m.risco === "MODERADO" || m.quantidade_recomendada_comprar > 0
+  );
+  const materiaisExibidos = mostrarTodosMateriais ? materiaisAnalisados : materiaisEmAlerta;
+  const snapshotAtivo = analiseAlgoritmica?.previsao_aplicada || null;
+
   return (
     <div className="animate-fade-in space-y-6">
-      {/* Header Conforme Print 2 */}
+      {/* Header */}
       <div className="glass p-6 rounded-2xl border border-slate-700/50 flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
         <div>
           <div className="inline-block px-3 py-1 bg-red-500/10 text-red-400 text-xs font-semibold rounded-full border border-red-500/20 mb-2">
             Monitoramento crítico
           </div>
-          <h1 className="text-2xl font-bold text-white">Alertas</h1>
+          <h1 className="text-2xl font-bold text-white">Alertas e Análise Algorítmica de Estoque</h1>
           <p className="text-slate-400 text-sm mt-1">
-            Acompanhe vencimentos próximos, lotes vencidos e materiais abaixo do estoque mínimo.
+            Acompanhe vencimentos próximos, lotes vencidos e o dimensionamento matemático de materiais por previsão epidemiológica.
           </p>
         </div>
         <div className="glass p-4 rounded-xl border border-slate-700/40 text-center min-w-[140px] bg-slate-900/50">
@@ -120,108 +159,223 @@ export default function AlertasPage() {
         </div>
       </div>
 
-      {/* Card de IA Preditiva Epidemiológica — Prophet */}
-      <div className="glass p-6 rounded-2xl border border-purple-500/30 bg-gradient-to-r from-slate-900 via-slate-900/90 to-purple-950/30 space-y-4 shadow-xl">
-        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 border-b border-slate-700/50 pb-3">
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl bg-purple-500/20 border border-purple-500/30 flex items-center justify-center text-purple-400 text-xl font-bold">
-              🧬
+      {/* Card de Análise Algorítmica e Matemática de Estoque + Dropdown de Previsão Salva */}
+      <div className="glass p-6 rounded-2xl border border-emerald-500/30 bg-gradient-to-r from-slate-900 via-slate-900/95 to-emerald-950/25 space-y-5 shadow-xl">
+        <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-4 border-b border-slate-700/50 pb-4">
+          <div className="flex items-start gap-3">
+            <div className="w-10 h-10 rounded-xl bg-emerald-500/20 border border-emerald-500/30 flex items-center justify-center text-emerald-400 text-xl font-bold shrink-0">
+              📐
             </div>
             <div>
               <div className="flex items-center gap-2 flex-wrap">
-                <h2 className="text-base font-bold text-white">Previsão de Surtos nas Próximas 8 Semanas</h2>
-                <span className="px-2.5 py-0.5 text-[10px] font-extrabold bg-purple-500/20 text-purple-300 border border-purple-500/40 rounded-full">
-                  Prophet + IA Preditiva
+                <h2 className="text-base font-bold text-white">
+                  Análise Algorítmica de Estoque & Demanda Epidemiológica
+                </h2>
+                <span className="px-2.5 py-0.5 text-[10px] font-extrabold bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 rounded-full">
+                  MMP + Ponto de Reposição + Estoque de Segurança (20%)
                 </span>
-                {iaDisponivel && previsoes.length > 0 && (
+                {!loadingAlgoritmo && materiaisEmAlerta.length > 0 && (
                   <span className="px-2 py-0.5 text-[10px] font-semibold bg-red-500/20 text-red-300 border border-red-500/30 rounded-full">
-                    {previsoes.length} insumo(s) em alerta
+                    {materiaisEmAlerta.length} insumo(s) requerem atenção
                   </span>
                 )}
               </div>
-              <p className="text-xs text-slate-400">
-                {iaDisponivel
-                  ? "Baseado no histórico real de consumo dos materiais via modelo Prophet."
-                  : "Relaciona o histórico de diagnósticos com a projeção de insumos consumidos."}
+              <p className="text-xs text-slate-400 mt-1">
+                Cálculo 100% determinístico e auditável cruzando consumo histórico (30/60/90 dias), lead time de fornecedores e a previsão epidemiológica selecionada.
               </p>
             </div>
           </div>
-          <span className="text-xs text-slate-400 font-mono bg-slate-900/80 px-3 py-1.5 rounded-lg border border-slate-800">
-            {iaDisponivel ? "Modelo real · Prophet" : "Região Sudeste · Outono 2026"}
-          </span>
+
+          {/* Dropdown de escolha da Previsão Salva */}
+          <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2.5 w-full lg:w-auto">
+            <div className="flex flex-col">
+              <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1">
+                Previsão Epidemiológica Aplicada
+              </label>
+              <select
+                value={previsaoSelecionadaId ?? ""}
+                onChange={(e) => {
+                  const val = e.target.value;
+                  setPrevisaoSelecionadaId(val ? Number(val) : null);
+                }}
+                className="bg-slate-950 border border-emerald-500/40 text-xs text-white rounded-xl px-3 py-2 focus:outline-none focus:border-emerald-400 min-w-[280px]"
+              >
+                <option value="">Apenas Consumo Histórico (Média Móvel Ponderada)</option>
+                {previsoesSalvas.map((prev) => (
+                  <option key={prev.id} value={prev.id}>
+                    {prev.titulo} ({Number(prev.casos_previstos || 0).toLocaleString("pt-BR")} casos · {prev.horizonte_semanas} sem)
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            <Link
+              href="/dashboard/previsao-epidemiologica"
+              className="self-end px-3 py-2 bg-slate-800 hover:bg-slate-700 text-emerald-300 border border-slate-700 text-xs font-semibold rounded-xl transition-colors whitespace-nowrap text-center"
+            >
+              + Nova Previsão
+            </Link>
+          </div>
         </div>
 
-        {/* Corpo do card */}
-        {loadingIA ? (
+        {/* Barra de Metadados da Previsão Selecionada */}
+        {snapshotAtivo && (
+          <div className="p-3.5 bg-slate-950/70 rounded-xl border border-slate-800 flex flex-wrap items-center justify-between gap-3 text-xs">
+            <div className="flex flex-wrap items-center gap-3">
+              <span className="px-2.5 py-1 rounded-lg bg-cyan-500/10 border border-cyan-500/30 text-cyan-300 font-bold">
+                Doença: {snapshotAtivo.doenca}
+              </span>
+              <span className="text-slate-300">
+                <strong className="text-slate-400">Região:</strong>{" "}
+                {Array.isArray(snapshotAtivo.localidades)
+                  ? snapshotAtivo.localidades.join(", ")
+                  : snapshotAtivo.localidades}
+              </span>
+              <span className="text-slate-300">
+                <strong className="text-slate-400">Horizonte:</strong> {snapshotAtivo.horizonte_semanas} semanas ({snapshotAtivo.horizonte_dias} dias)
+              </span>
+              <span className="text-slate-300">
+                <strong className="text-slate-400">Casos Previstos:</strong>{" "}
+                <span className="text-emerald-400 font-bold">
+                  {Number(snapshotAtivo.casos_previstos || 0).toLocaleString("pt-BR")}
+                </span>
+              </span>
+              <span className="text-slate-300">
+                <strong className="text-slate-400">Tendência:</strong> {snapshotAtivo.tendencia}
+              </span>
+            </div>
+            <div className="flex items-center gap-2">
+              <span className="px-2.5 py-1 rounded-lg bg-emerald-500/10 border border-emerald-500/20 text-emerald-300 font-semibold">
+                Confiança: {Math.round((snapshotAtivo.grau_confianca || 0.8) * 100)}%
+              </span>
+            </div>
+          </div>
+        )}
+
+        {/* Corpo da Análise Algorítmica */}
+        {loadingAlgoritmo ? (
           <div className="flex justify-center py-8">
-            <div className="w-6 h-6 border-2 border-purple-400 border-t-transparent rounded-full animate-spin" />
+            <div className="w-6 h-6 border-2 border-emerald-400 border-t-transparent rounded-full animate-spin" />
           </div>
-        ) : iaDisponivel && previsoes.length > 0 ? (
-          // — Dados reais do Prophet —
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 pt-1">
-            {previsoes.map((p: any, idx: number) => {
-              const corRisco = p.risco_surto === "ALTO"
-                ? { badge: "bg-red-500/10 text-red-400 border-red-500/20", barra: "text-red-400 bg-red-500/10 border-red-500/20" }
-                : { badge: "bg-amber-500/10 text-amber-400 border-amber-500/20", barra: "text-amber-400 bg-amber-500/10 border-amber-500/20" };
-              const tendenciaEmoji = p.tendencia === "crescente" ? "📈" : p.tendencia === "decrescente" ? "📉" : "→";
-              return (
-                <div key={idx} className="p-4 bg-slate-900/80 rounded-xl border border-slate-800 space-y-2 hover:border-purple-500/40 transition-colors">
-                  <div className="flex justify-between items-center">
-                    <span className={`text-xs font-bold px-2 py-0.5 rounded border ${corRisco.badge}`}>
-                      Risco {p.risco_surto}
-                    </span>
-                    <span className="text-[11px] text-slate-400 font-medium">
-                      {tendenciaEmoji} Tendência {p.tendencia}
-                    </span>
+        ) : materiaisExibidos.length > 0 ? (
+          <div className="space-y-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+              {materiaisExibidos.map((item: any) => {
+                const isAlto = item.risco === "ALTO";
+                const isModerado = item.risco === "MODERADO";
+                const badgeStyle = isAlto
+                  ? "bg-red-500/15 text-red-400 border-red-500/30"
+                  : isModerado
+                  ? "bg-amber-500/15 text-amber-400 border-amber-500/30"
+                  : "bg-emerald-500/15 text-emerald-400 border-emerald-500/30";
+                const tendenciaIcon =
+                  item.tendencia_consumo === "crescente"
+                    ? "📈"
+                    : item.tendencia_consumo === "decrescente"
+                    ? "📉"
+                    : "→";
+
+                return (
+                  <div
+                    key={item.material_id}
+                    className="p-4 bg-slate-900/85 rounded-xl border border-slate-800 space-y-2.5 hover:border-emerald-500/40 transition-colors flex flex-col justify-between"
+                  >
+                    <div className="space-y-2">
+                      <div className="flex justify-between items-center gap-2">
+                        <span className={`text-[11px] font-bold px-2 py-0.5 rounded border ${badgeStyle}`}>
+                          Risco {item.risco}
+                        </span>
+                        <span className="text-[11px] text-slate-400 font-medium">
+                          {tendenciaIcon} Consumo {item.tendencia_consumo}
+                        </span>
+                      </div>
+
+                      <h3 className="font-bold text-white text-sm truncate" title={item.nome}>
+                        {item.nome}
+                      </h3>
+
+                      <div className="grid grid-cols-2 gap-1.5 text-[11px] bg-slate-950/70 p-2.5 rounded-lg border border-slate-800/80">
+                        <div>
+                          <span className="text-slate-500 block">Saldo Válido</span>
+                          <strong className="text-white">
+                            {item.saldo_atual} {item.unidade_medida}
+                          </strong>
+                        </div>
+                        <div>
+                          <span className="text-slate-500 block">Ponto Reposição (ROP)</span>
+                          <strong className="text-cyan-300">
+                            {item.ponto_reposicao} {item.unidade_medida}
+                          </strong>
+                        </div>
+                        <div>
+                          <span className="text-slate-500 block">Consumo MMP</span>
+                          <strong className="text-slate-200">
+                            {item.consumo_diario_mmp}/dia
+                          </strong>
+                        </div>
+                        <div>
+                          <span className="text-slate-500 block">Demanda Surto</span>
+                          <strong className="text-purple-300">
+                            +{item.demanda_epidemiologica_horizonte} ({item.horizonte_dias}d)
+                          </strong>
+                        </div>
+                        <div>
+                          <span className="text-slate-500 block">Estoque Segurança</span>
+                          <strong className="text-slate-300">
+                            {item.estoque_seguranca} {item.unidade_medida}
+                          </strong>
+                        </div>
+                        <div>
+                          <span className="text-slate-500 block">Cobertura / Lead Time</span>
+                          <strong className={isAlto ? "text-red-400" : "text-emerald-400"}>
+                            {item.cobertura_dias !== null ? `${item.cobertura_dias}d` : "∞"} / {item.lead_time_dias}d
+                          </strong>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="pt-1 flex items-center justify-between border-t border-slate-800/80 text-xs">
+                      <span className="text-slate-400 text-[11px]">Sugestão Algorítmica:</span>
+                      {item.quantidade_recomendada_comprar > 0 ? (
+                        <span className="px-2.5 py-0.5 rounded-lg bg-cyan-500/15 text-cyan-300 border border-cyan-500/30 font-bold">
+                          Comprar +{item.quantidade_recomendada_comprar} {item.unidade_medida}
+                        </span>
+                      ) : (
+                        <span className="text-emerald-400 font-semibold text-[11px]">
+                          Estoque suficiente
+                        </span>
+                      )}
+                    </div>
                   </div>
-                  <h3 className="font-semibold text-white text-sm truncate" title={p.nome}>{p.nome}</h3>
-                  <p className="text-xs text-slate-400">
-                    <strong className="text-slate-300">Consumo previsto:</strong>{" "}
-                    {p.consumo_previsto_total.toFixed(1)} {p.unidade_medida} em {p.horizonte_dias} dias
-                  </p>
-                  <div className={`text-[11px] font-medium px-2 py-1 rounded border ${corRisco.barra}`}>
-                    {p.consumo_previsto_diario === 0 
-                      ? "Sem atividade prevista no horizonte"
-                      : `Base: ${p.consumo_baseline_diario.toFixed(2)}/dia → Previsto: ${p.consumo_previsto_diario.toFixed(2)}/dia`}
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-        ) : iaDisponivel && previsoes.length === 0 ? (
-          // — Dados reais, mas sem risco elevado —
-          <div className="py-6 text-center space-y-1">
-            <p className="text-emerald-400 font-semibold text-sm">✅ Nenhum material com risco de surto elevado no horizonte de 8 semanas.</p>
-            <p className="text-xs text-slate-500">O modelo Prophet analisou o histórico real e não identificou tendência de aumento significativo.</p>
-          </div>
-        ) : (
-          // — Fallback quando Prophet não tem dados ou endpoint indisponível —
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pt-1">
-            {/* Surto 1: Influenza */}
-            <div className="p-4 bg-slate-900/80 rounded-xl border border-slate-800 space-y-2 hover:border-purple-500/40 transition-colors">
-              <div className="flex justify-between items-center">
-                <span className="text-xs font-bold text-purple-400 bg-purple-500/10 px-2 py-0.5 rounded border border-purple-500/20">CID-10 J10</span>
-                <span className="text-[11px] text-slate-400 font-medium">Sazonalidade Regional</span>
-              </div>
-              <h3 className="font-semibold text-white text-sm">Influenza A/B (Gripe Sazonal)</h3>
-              <p className="text-xs text-slate-400"><strong className="text-slate-300">Insumos Críticos:</strong> Swabs, Kits RT-PCR, Tubos VTM, Ponteiras.</p>
-              <Link href="/dashboard/previsao-epidemiologica" className="inline-block text-[11px] text-purple-400 hover:text-purple-300 font-semibold pt-1">
-                Ver projeção completa de casos e estoque →
-              </Link>
+                );
+              })}
             </div>
 
-            {/* Surto 2: Dengue */}
-            <div className="p-4 bg-slate-900/80 rounded-xl border border-slate-800 space-y-2 hover:border-cyan-500/40 transition-colors">
-              <div className="flex justify-between items-center">
-                <span className="text-xs font-bold text-cyan-400 bg-cyan-500/10 px-2 py-0.5 rounded border border-cyan-500/20">CID-10 A90</span>
-                <span className="text-[11px] text-slate-400 font-medium">Sazonalidade Regional</span>
-              </div>
-              <h3 className="font-semibold text-white text-sm">Dengue (Sorotipos 1 a 4)</h3>
-              <p className="text-xs text-slate-400"><strong className="text-slate-300">Insumos Críticos:</strong> Cassetes Sorológicos NS1, Kits RT-PCR Dengue, Reagentes.</p>
-              <Link href="/dashboard/previsao-epidemiologica" className="inline-block text-[11px] text-cyan-400 hover:text-cyan-300 font-semibold pt-1">
-                Ver projeção completa de casos e estoque →
-              </Link>
+            <div className="flex justify-between items-center pt-2 text-xs text-slate-400">
+              <span>
+                Exibindo {materiaisExibidos.length} de {materiaisAnalisados.length} materiais analisados pelo motor matemático.
+              </span>
+              <button
+                onClick={() => setMostrarTodosMateriais(!mostrarTodosMateriais)}
+                className="text-emerald-400 hover:text-emerald-300 font-semibold underline"
+              >
+                {mostrarTodosMateriais ? "Mostrar apenas insumos em alerta" : "Ver todos os materiais analisados"}
+              </button>
             </div>
+          </div>
+        ) : (
+          <div className="py-6 text-center space-y-2">
+            <p className="text-emerald-400 font-semibold text-sm">
+              ✅ Nenhum material com risco de ruptura ou abaixo do Ponto de Reposição para este cenário.
+            </p>
+            {materiaisAnalisados.length > 0 && (
+              <button
+                onClick={() => setMostrarTodosMateriais(true)}
+                className="text-xs text-cyan-400 hover:text-cyan-300 font-semibold underline"
+              >
+                Ver métricas matemáticas de todos os {materiaisAnalisados.length} materiais →
+              </button>
+            )}
           </div>
         )}
       </div>
