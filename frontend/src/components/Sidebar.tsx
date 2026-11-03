@@ -5,13 +5,20 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useState } from "react";
 
-const navItems = [
+const navItems: Array<{
+  href: string;
+  label: string;
+  icon: string;
+  adminOnly?: boolean;
+  badge?: string;
+}> = [
   { href: "/dashboard", label: "Dashboard", icon: "📊" },
   { href: "/dashboard/estoque", label: "Estoque", icon: "📦" },
   { href: "/dashboard/reposicao", label: "Reposição", icon: "📋" },
   { href: "/dashboard/alertas", label: "Alertas", icon: "⚠️" },
   { href: "/dashboard/previsao-epidemiologica", label: "Previsão Epidemiológica", icon: "📈" },
   { href: "/dashboard/auditoria", label: "Auditoria", icon: "📜" },
+  { href: "/dashboard/chatbot", label: "Assistente IA", icon: "🤖", badge: "Preview" },
   { href: "/dashboard/configuracoes", label: "Configurações", icon: "⚙️", adminOnly: true },
 ];
 
@@ -53,14 +60,21 @@ export default function Sidebar() {
             <Link
               key={item.href}
               href={item.href}
-              className={`flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-all duration-200 group ${
+              className={`flex items-center justify-between gap-2 px-3 py-2.5 rounded-lg text-sm font-medium transition-all duration-200 group ${
                 isActive
                   ? "bg-emerald-500/10 text-emerald-400 shadow-[inset_0_0_0_1px_rgba(52,211,153,0.2)]"
                   : "text-slate-400 hover:bg-slate-800 hover:text-white"
               }`}
             >
-              <span className="text-lg shrink-0">{item.icon}</span>
-              {!collapsed && <span>{item.label}</span>}
+              <div className="flex items-center gap-3 min-w-0">
+                <span className="text-lg shrink-0">{item.icon}</span>
+                {!collapsed && <span className="truncate">{item.label}</span>}
+              </div>
+              {!collapsed && item.badge && (
+                <span className="px-1.5 py-0.5 text-[10px] font-bold uppercase rounded bg-amber-500/15 text-amber-300 border border-amber-500/30 shrink-0">
+                  {item.badge}
+                </span>
+              )}
             </Link>
           );
         })}
