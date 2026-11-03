@@ -338,3 +338,90 @@ export const iaApi = {
       body: JSON.stringify(data),
     }),
 };
+
+// =====================================================================
+// PEDIDOS DE REPOSIÇÃO E ENTREGAS PARCIAIS / NF (FASE 4.1)
+// =====================================================================
+export const pedidosReposicaoApi = {
+  listar: (params?: { status?: string; material_id?: number }) => {
+    const qs = new URLSearchParams();
+    if (params?.status) qs.set("status", params.status);
+    if (params?.material_id) qs.set("material_id", String(params.material_id));
+    const q = qs.toString();
+    return fetchApi<any[]>(`/pedidos-reposicao/${q ? `?${q}` : ""}`);
+  },
+  criar: (data: {
+    material_id: number;
+    fornecedor_id?: number | null;
+    empresa_fornecedora?: string;
+    data_pedido?: string;
+    quantidade_solicitada: number;
+    observacoes?: string;
+  }) =>
+    fetchApi<any>("/pedidos-reposicao/", {
+      method: "POST",
+      body: JSON.stringify(data),
+    }),
+  registrarEntrega: (
+    pedidoId: number,
+    data: {
+      numero_nf: string;
+      data_recebimento?: string;
+      quantidade_entregue: number;
+      abastecer_estoque?: boolean;
+      lote_id?: number | null;
+      numero_lote_recebido?: string;
+      data_validade_lote?: string;
+      local_id?: number | null;
+      observacoes?: string;
+    }
+  ) =>
+    fetchApi<any>(`/pedidos-reposicao/${pedidoId}/entregas`, {
+      method: "POST",
+      body: JSON.stringify(data),
+    }),
+  cancelar: (pedidoId: number) =>
+    fetchApi<any>(`/pedidos-reposicao/${pedidoId}/cancelar`, {
+      method: "PATCH",
+    }),
+};
+
+// =====================================================================
+// RASTREABILIDADE POR PACIENTE, CONVÊNIO E EXAMES (FASE 4.2)
+// =====================================================================
+export const rastreabilidadeApi = {
+  listar: (params?: {
+    material_id?: number;
+    lote_id?: number;
+    paciente?: string;
+    convenio?: string;
+    exame?: string;
+  }) => {
+    const qs = new URLSearchParams();
+    if (params?.material_id) qs.set("material_id", String(params.material_id));
+    if (params?.lote_id) qs.set("lote_id", String(params.lote_id));
+    if (params?.paciente) qs.set("paciente", params.paciente);
+    if (params?.convenio) qs.set("convenio", params.convenio);
+    if (params?.exame) qs.set("exame", params.exame);
+    const q = qs.toString();
+    return fetchApi<any>(`/rastreabilidade/${q ? `?${q}` : ""}`);
+  },
+  registrarAtendimento: (data: {
+    paciente_nome: string;
+    paciente_documento?: string;
+    convenio: string;
+    codigo_atendimento?: string;
+    exames: string[];
+    observacoes?: string;
+    itens_consumidos: {
+      lote_id: number;
+      quantidade: number;
+      exame_especifico?: string;
+    }[];
+  }) =>
+    fetchApi<any>("/rastreabilidade/atendimentos", {
+      method: "POST",
+      body: JSON.stringify(data),
+    }),
+};
+

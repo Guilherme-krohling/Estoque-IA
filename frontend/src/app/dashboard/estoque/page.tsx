@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState, useMemo } from "react";
-import { materiaisApi, lotesApi, categoriasApi, movimentacoesApi, locaisApi } from "@/lib/api";
+import { materiaisApi, lotesApi, categoriasApi, movimentacoesApi, locaisApi, rastreabilidadeApi } from "@/lib/api";
 import { showToast } from "@/components/Toast";
 
 export default function EstoqueWorkspace() {
@@ -22,6 +22,18 @@ export default function EstoqueWorkspace() {
   // Forms
   const [formMaterial, setFormMaterial] = useState({ nome: "", categoria_id: "", fabricante: "", codigo_catalogo: "", classe_risco: "", unidade_medida: "un", estoque_minimo: "", estoque_maximo: "", exige_refrigeracao: false, temperatura_min: "", temperatura_max: "" });
   const [formLote, setFormLote] = useState({ material_id: "", local_id: "", numero_lote: "", quantidade_inicial: "", data_fabricacao: "", data_validade: "", certificado_analise: "" });
+
+  // Modal de Uso Rastreável por Paciente / Convênio / Exames (Fase 4.2)
+  const [loteUsoSelecionado, setLoteUsoSelecionado] = useState<any | null>(null);
+  const [modoUso, setModoUso] = useState<"PACIENTE" | "INTERNO">("PACIENTE");
+  const [salvandoUso, setSalvandoUso] = useState(false);
+  const [formUso, setFormUso] = useState({
+    quantidade: "1",
+    paciente_nome: "",
+    convenio: "Unimed",
+    exames_texto: "",
+    motivo_interno: "Uso interno de bancada / calibração",
+  });
 
   const CLASSES_RISCO = ["Comum", "Biológico", "Químico", "Inflamável"];
 
@@ -111,6 +123,22 @@ export default function EstoqueWorkspace() {
       return;
     }
 
+    if (tipo === "USO") {
+      const loteObj = lotes.find((l) => l.id === loteId);
+      if (loteObj) {
+        setLoteUsoSelecionado(loteObj);
+        setModoUso("PACIENTE");
+        setFormUso({
+          quantidade: "1",
+          paciente_nome: "",
+          convenio: "Unimed",
+          exames_texto: "",
+          motivo_interno: "Uso interno de bancada / calibração",
+        });
+        return;
+      }
+    }
+
     const label =
       tipo === "AJUSTE"
         ? "Ajuste de inventário — digite o saldo REAL contado:"
@@ -132,6 +160,58 @@ export default function EstoqueWorkspace() {
       showToast(`${tipo} registrada com sucesso!`);
       load();
     } catch (err: any) { showToast(err.message, "error"); }
+  };
+
+  const handleConfirmarUsoModal = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!loteUsoSelecionado) return;
+
+    const qtd = parseFloat(formUso.quantidade.replace(",", "."));
+    if (isNaN(qtd) || qtd <= 0) {
+      showToast("Informe uma quantidade válida maior que zero.", "error");
+      return;
+    }
+
+    setSalvandoUso(true);
+    try {
+      if (modoUso === "PACIENTE") {
+        const examesLista = formUso.exames_texto
+          .split(",")
+          .map((s) => s.trim())
+          .filter(Boolean);
+        if (!formUso.paciente_nome.trim()) {
+          showToast("Informe o nome do paciente.", "error");
+          setSalvandoUso(false);
+          return;
+        }
+        if (examesLista.length === 0) {
+          showToast("Informe ao menos 1 exame realizado pelo paciente.", "error");
+          setSalvandoUso(false);
+          return;
+        }
+        await rastreabilidadeApi.registrarAtendimento({
+          paciente_nome: formUso.paciente_nome.trim(),
+          convenio: formUso.convenio.trim() || "Particular",
+          exames: examesLista,
+          itens_consumidos: [{ lote_id: loteUsoSelecionado.id, quantidade: qtd }],
+        });
+        showToast("Baixa registrada e vinculada ao paciente, convênio e exames!");
+      } else {
+        await movimentacoesApi.criar({
+          lote_id: loteUsoSelecionado.id,
+          tipo: "USO",
+          quantidade: qtd,
+          motivo: formUso.motivo_interno.trim() || "Uso interno via Workspace",
+        });
+        showToast("Uso interno registrado com sucesso!");
+      }
+      setLoteUsoSelecionado(null);
+      load();
+    } catch (err: any) {
+      showToast(err.message || "Erro ao registrar uso.", "error");
+    } finally {
+      setSalvandoUso(false);
+    }
   };
 
   const handleSortToggle = (field: string) => {
@@ -443,6 +523,138 @@ export default function EstoqueWorkspace() {
           </div>
         </div>
       </div>
+
+      {/* Modal de Baixa (USO) com Rastreabilidade de Paciente, Convênio e Exames */}
+      {loteUsoSelecionado && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/80 backdrop-blur-sm p-4">
+          <div className="glass max-w-lg w-full rounded-2xl border border-slate-700 p-6 shadow-2xl">
+            <div className="flex items-center justify-between border-b border-slate-700/60 pb-3 mb-4">
+              <div>
+                <h3 className="text-base font-bold text-white">Registrar Baixa / Uso de Material</h3>
+                <p className="text-xs text-slate-400">
+                  {materiais.find((m) => m.id === loteUsoSelecionado.material_id)?.nome || "Material"} · Lote{" "}
+                  <span className="text-cyan-400 font-mono">{loteUsoSelecionado.numero_lote}</span> (Disponível:{" "}
+                  {loteUsoSelecionado.quantidade_atual})
+                </p>
+              </div>
+              <button
+                onClick={() => setLoteUsoSelecionado(null)}
+                className="text-slate-400 hover:text-white text-sm font-bold px-2 py-1"
+              >
+                ✕
+              </button>
+            </div>
+
+            <div className="flex gap-2 mb-4">
+              <button
+                type="button"
+                onClick={() => setModoUso("PACIENTE")}
+                className={`flex-1 py-2 px-3 rounded-xl text-xs font-bold transition-all ${modoUso === "PACIENTE"
+                    ? "bg-cyan-500/20 text-cyan-300 border border-cyan-500/50"
+                    : "bg-slate-800/60 text-slate-400 border border-slate-700/50 hover:text-white"
+                  }`}
+              >
+                Vincular a Paciente, Convênio & Exames
+              </button>
+              <button
+                type="button"
+                onClick={() => setModoUso("INTERNO")}
+                className={`flex-1 py-2 px-3 rounded-xl text-xs font-bold transition-all ${modoUso === "INTERNO"
+                    ? "bg-amber-500/20 text-amber-300 border border-amber-500/50"
+                    : "bg-slate-800/60 text-slate-400 border border-slate-700/50 hover:text-white"
+                  }`}
+              >
+                Uso Interno / Bancada
+              </button>
+            </div>
+
+            <form onSubmit={handleConfirmarUsoModal} className="space-y-3">
+              <div>
+                <label className="block text-xs text-slate-300 mb-1">Quantidade Utilizada *</label>
+                <input
+                  type="number"
+                  step="0.01"
+                  min="0.01"
+                  required
+                  value={formUso.quantidade}
+                  onChange={(e) => setFormUso({ ...formUso, quantidade: e.target.value })}
+                  className="w-full px-3 py-2 bg-slate-900 border border-slate-700 rounded-lg text-white text-sm"
+                />
+              </div>
+
+              {modoUso === "PACIENTE" ? (
+                <>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <div>
+                      <label className="block text-xs text-slate-300 mb-1">Nome do Paciente *</label>
+                      <input
+                        type="text"
+                        required
+                        value={formUso.paciente_nome}
+                        onChange={(e) => setFormUso({ ...formUso, paciente_nome: e.target.value })}
+                        placeholder="Ex: Guilherme"
+                        className="w-full px-3 py-2 bg-slate-900 border border-slate-700 rounded-lg text-white text-sm"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-xs text-slate-300 mb-1">Convênio *</label>
+                      <input
+                        type="text"
+                        required
+                        value={formUso.convenio}
+                        onChange={(e) => setFormUso({ ...formUso, convenio: e.target.value })}
+                        placeholder="Ex: Unimed, Particular..."
+                        className="w-full px-3 py-2 bg-slate-900 border border-slate-700 rounded-lg text-white text-sm"
+                      />
+                    </div>
+                  </div>
+                  <div>
+                    <label className="block text-xs text-slate-300 mb-1">
+                      Exames Realizados pelo Paciente (separe por vírgula) *
+                    </label>
+                    <textarea
+                      rows={2}
+                      required
+                      value={formUso.exames_texto}
+                      onChange={(e) => setFormUso({ ...formUso, exames_texto: e.target.value })}
+                      placeholder="Ex: Hemograma Completo, Sorologia Dengue IgM/IgG, TGO, TGP..."
+                      className="w-full px-3 py-2 bg-slate-900 border border-slate-700 rounded-lg text-white text-sm"
+                    />
+                  </div>
+                </>
+              ) : (
+                <div>
+                  <label className="block text-xs text-slate-300 mb-1">Motivo / Justificativa</label>
+                  <input
+                    type="text"
+                    required
+                    value={formUso.motivo_interno}
+                    onChange={(e) => setFormUso({ ...formUso, motivo_interno: e.target.value })}
+                    className="w-full px-3 py-2 bg-slate-900 border border-slate-700 rounded-lg text-white text-sm"
+                  />
+                </div>
+              )}
+
+              <div className="flex justify-end gap-2 pt-3 border-t border-slate-700/60">
+                <button
+                  type="button"
+                  onClick={() => setLoteUsoSelecionado(null)}
+                  className="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-xl text-xs font-semibold"
+                >
+                  Cancelar
+                </button>
+                <button
+                  type="submit"
+                  disabled={salvandoUso}
+                  className="px-4 py-2 bg-cyan-500 hover:bg-cyan-400 disabled:opacity-50 text-slate-950 rounded-xl text-xs font-bold"
+                >
+                  {salvandoUso ? "Salvando..." : "Confirmar Baixa"}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

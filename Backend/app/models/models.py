@@ -269,3 +269,109 @@ class PrevisaoSalva(Base):
     # Payload completo do gráfico e séries (JSON serializado)
     dados_completos_json = Column(Text, nullable=False)
     criado_em = Column(DateTime, default=func.now())
+
+
+# =====================================================================
+# 10. PEDIDOS DE REPOSICAO (Fase 4.1 — Suprimentos e Entregas Parciais)
+# =====================================================================
+class PedidoReposicao(Base):
+    __tablename__ = "pedidos_reposicao"
+
+    id = Column(Integer, primary_key=True, index=True)
+    material_id = Column(Integer, ForeignKey("materiais.id"), nullable=False, index=True)
+    fornecedor_id = Column(Integer, ForeignKey("fornecedores.id"), nullable=True, index=True)
+    empresa_fornecedora = Column(String(150), nullable=False)
+    usuario_id = Column(Integer, ForeignKey("usuarios.id"), nullable=True)
+    data_pedido = Column(Date, nullable=False)
+    quantidade_solicitada = Column(Numeric(10, 2), nullable=False)
+    quantidade_recebida = Column(Numeric(10, 2), nullable=False, default=0)
+    status = Column(String(30), nullable=False, default="PENDENTE")  # PENDENTE | PARCIAL | CONCLUIDO | CANCELADO
+    observacoes = Column(Text, nullable=True)
+    criado_em = Column(DateTime, default=func.now())
+
+    # Relacionamentos
+    material = relationship("Material")
+    fornecedor = relationship("Fornecedor")
+    usuario = relationship("Usuario")
+    entregas = relationship(
+        "EntregaPedido",
+        back_populates="pedido",
+        cascade="all, delete-orphan",
+        order_by="EntregaPedido.data_recebimento.asc()",
+    )
+
+
+# =====================================================================
+# 11. ENTREGAS DE PEDIDOS / NOTAS FISCAIS (Fase 4.1)
+# =====================================================================
+class EntregaPedido(Base):
+    __tablename__ = "entregas_pedidos"
+
+    id = Column(Integer, primary_key=True, index=True)
+    pedido_id = Column(Integer, ForeignKey("pedidos_reposicao.id", ondelete="CASCADE"), nullable=False, index=True)
+    lote_id = Column(Integer, ForeignKey("lotes.id"), nullable=True)
+    movimentacao_id = Column(Integer, ForeignKey("movimentacoes_estoque.id"), nullable=True)
+    numero_nf = Column(String(60), nullable=False)
+    data_recebimento = Column(Date, nullable=False)
+    quantidade_entregue = Column(Numeric(10, 2), nullable=False)
+    numero_lote_recebido = Column(String(50), nullable=True)
+    data_validade_lote = Column(Date, nullable=True)
+    observacoes = Column(String(255), nullable=True)
+    usuario_id = Column(Integer, ForeignKey("usuarios.id"), nullable=True)
+    criado_em = Column(DateTime, default=func.now())
+
+    # Relacionamentos
+    pedido = relationship("PedidoReposicao", back_populates="entregas")
+    lote = relationship("Lote")
+    movimentacao = relationship("MovimentacaoEstoque")
+    usuario = relationship("Usuario")
+
+
+# =====================================================================
+# 12. ATENDIMENTOS DE PACIENTES (Fase 4.2 — Rastreabilidade Clínica)
+# =====================================================================
+class AtendimentoPaciente(Base):
+    __tablename__ = "atendimentos_pacientes"
+
+    id = Column(Integer, primary_key=True, index=True)
+    codigo_atendimento = Column(String(50), nullable=False, index=True)
+    paciente_nome = Column(String(150), nullable=False, index=True)
+    paciente_documento = Column(String(50), nullable=True)
+    convenio = Column(String(100), nullable=False, index=True)
+    exames_json = Column(Text, nullable=False, default="[]")  # JSON list de exames realizados
+    data_atendimento = Column(DateTime, default=func.now(), nullable=False)
+    usuario_id = Column(Integer, ForeignKey("usuarios.id"), nullable=True)
+    observacoes = Column(Text, nullable=True)
+    criado_em = Column(DateTime, default=func.now())
+
+    # Relacionamentos
+    usuario = relationship("Usuario")
+    consumos = relationship(
+        "ConsumoMaterialPaciente",
+        back_populates="atendimento",
+        cascade="all, delete-orphan",
+    )
+
+
+# =====================================================================
+# 13. CONSUMO DE MATERIAL POR PACIENTE (Fase 4.2)
+# =====================================================================
+class ConsumoMaterialPaciente(Base):
+    __tablename__ = "consumos_materiais_pacientes"
+
+    id = Column(Integer, primary_key=True, index=True)
+    atendimento_id = Column(Integer, ForeignKey("atendimentos_pacientes.id", ondelete="CASCADE"), nullable=False, index=True)
+    material_id = Column(Integer, ForeignKey("materiais.id"), nullable=False, index=True)
+    lote_id = Column(Integer, ForeignKey("lotes.id"), nullable=False, index=True)
+    movimentacao_id = Column(Integer, ForeignKey("movimentacoes_estoque.id"), nullable=True)
+    quantidade_utilizada = Column(Numeric(10, 2), nullable=False)
+    unidade_medida = Column(String(20), nullable=False, default="un")
+    exame_especifico = Column(String(150), nullable=True)
+    criado_em = Column(DateTime, default=func.now())
+
+    # Relacionamentos
+    atendimento = relationship("AtendimentoPaciente", back_populates="consumos")
+    material = relationship("Material")
+    lote = relationship("Lote")
+    movimentacao = relationship("MovimentacaoEstoque")
+

@@ -20,6 +20,7 @@ from app.models.models import (
     MovimentacaoEstoque,
     Doenca,
     PrevisaoSalva,
+    PedidoReposicao,
     materiais_doencas,
 )
 
@@ -417,13 +418,32 @@ def analisar_estoque_algoritmico(
             cobertura_dias = 999.0
 
         # Quantidade recomendada de compra (Matemática determinística e auditável)
+        # Considera também o saldo de entregas pendentes já pedidas na Fase 4.1
+        saldo_entregas_pendentes = 0.0
+        try:
+            pedidos_abertos = (
+                db.query(PedidoReposicao)
+                .filter(
+                    PedidoReposicao.material_id == mat.id,
+                    PedidoReposicao.status.in_(["PENDENTE", "PARCIAL"]),
+                )
+                .all()
+            )
+            for ped in pedidos_abertos:
+                faltante_ped = float(ped.quantidade_solicitada or 0) - float(ped.quantidade_recebida or 0)
+                if faltante_ped > 0:
+                    saldo_entregas_pendentes += faltante_ped
+        except Exception:
+            saldo_entregas_pendentes = 0.0
+        saldo_entregas_pendentes = round(saldo_entregas_pendentes, 2)
+
         necessidade_total = round(demanda_total_horizonte + estoque_seguranca, 2)
         if saldo_atual < ponto_reposicao:
             necessidade_total = max(necessidade_total, round(ponto_reposicao + estoque_seguranca, 2))
 
-        quantidade_comprar = max(0.0, round(necessidade_total - saldo_atual, 1))
+        quantidade_comprar = max(0.0, round(necessidade_total - (saldo_atual + saldo_entregas_pendentes), 1))
         if mat.estoque_maximo:
-            teto_max = max(0.0, float(mat.estoque_maximo) - saldo_atual)
+            teto_max = max(0.0, float(mat.estoque_maximo) - (saldo_atual + saldo_entregas_pendentes))
             if teto_max > 0:
                 quantidade_comprar = min(quantidade_comprar, round(teto_max, 1))
 
@@ -454,6 +474,7 @@ def analisar_estoque_algoritmico(
             "unidade_medida": mat.unidade_medida or "un",
             "doencas_vinculadas": doencas_vinculadas,
             "saldo_atual": saldo_atual,
+            "saldo_entregas_pendentes": saldo_entregas_pendentes,
             "estoque_minimo": estoque_minimo,
             "estoque_seguranca": estoque_seguranca,
             "ponto_reposicao": ponto_reposicao,

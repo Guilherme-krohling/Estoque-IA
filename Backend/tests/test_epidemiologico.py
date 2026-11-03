@@ -66,3 +66,148 @@ def test_fluxo_previsao_salva_e_analise_algoritmica(client, auth):
     assert analise["previsao_aplicada"]["id"] == criada["id"]
     assert "resumo" in analise
     assert isinstance(analise["materiais"], list)
+
+
+def test_fluxo_pedidos_reposicao_nf_e_entregas_parciais(client, auth):
+    # 1. Cria material para o pedido
+    r_mat = client.post(
+        "/api/materiais/",
+        json={"nome": "Kit Teste Rápido Dengue NS1", "unidade_medida": "cx", "estoque_minimo": 20},
+        headers=auth,
+    )
+    assert r_mat.status_code == 201, r_mat.text
+    mat_id = r_mat.json()["id"]
+
+    # 2. Cria pedido de reposição de 50 unidades
+    r_ped = client.post(
+        "/api/pedidos-reposicao/",
+        json={
+            "material_id": mat_id,
+            "empresa_fornecedora": "BioTech Diagnósticos Ltda",
+            "quantidade_solicitada": 50,
+            "data_pedido": "2026-10-01",
+            "previsao_entrega": "2026-10-15",
+            "observacoes": "Pedido mensal de reposição",
+        },
+        headers=auth,
+    )
+    assert r_ped.status_code == 201, r_ped.text
+    pedido = r_ped.json()
+    assert pedido["status"] == "PENDENTE"
+    assert pedido["quantidade_solicitada"] == 50.0
+    assert pedido["quantidade_recebida"] == 0.0
+    assert pedido["quantidade_pendente"] == 50.0
+
+    # 3. Registra 1ª entrega PARCIAL (chegaram 30 de 50, faltam 20) com NF 00048291
+    r_ent1 = client.post(
+        f"/api/pedidos-reposicao/{pedido['id']}/entregas",
+        json={
+            "numero_nf": "00048291",
+            "data_chegada": "2026-10-10",
+            "quantidade_entregue": 30,
+            "integrar_estoque": True,
+            "numero_lote": "LOTE-NF-48291",
+            "data_validade": "2028-12-31",
+            "observacoes": "1ª remessa parcial",
+        },
+        headers=auth,
+    )
+    assert r_ent1.status_code == 201, r_ent1.text
+    ped_parcial = r_ent1.json()
+    assert ped_parcial["status"] == "PARCIAL"
+    assert ped_parcial["quantidade_recebida"] == 30.0
+    assert ped_parcial["quantidade_pendente"] == 20.0
+    assert len(ped_parcial["entregas"]) == 1
+    assert ped_parcial["entregas"][0]["numero_nf"] == "00048291"
+    lote_criado_id = ped_parcial["entregas"][0]["lote_id"]
+    assert lote_criado_id is not None
+
+    # 4. Registra 2ª entrega concluindo os 20 restantes com NF 00000000
+    r_ent2 = client.post(
+        f"/api/pedidos-reposicao/{pedido['id']}/entregas",
+        json={
+            "numero_nf": "00000000",
+            "data_chegada": "2026-10-14",
+            "quantidade_entregue": 20,
+            "integrar_estoque": True,
+            "lote_id": lote_criado_id,
+            "observacoes": "Entrega final concluindo o pedido",
+        },
+        headers=auth,
+    )
+    assert r_ent2.status_code == 201, r_ent2.text
+    ped_concluido = r_ent2.json()
+    assert ped_concluido["status"] == "CONCLUIDO"
+    assert ped_concluido["quantidade_recebida"] == 50.0
+    assert ped_concluido["quantidade_pendente"] == 0.0
+    assert len(ped_concluido["entregas"]) == 2
+
+
+def test_fluxo_rastreabilidade_paciente_convenio_exames(client, auth):
+    # 1. Cria material e lote ativo com 20 unidades
+    r_mat = client.post(
+        "/api/materiais/",
+        json={"nome": "Reagente Bioquímico Rastreável", "unidade_medida": "ml", "estoque_minimo": 5},
+        headers=auth,
+    )
+    assert r_mat.status_code == 201
+    mat_id = r_mat.json()["id"]
+
+    r_lote = client.post(
+        "/api/lotes/",
+        json={
+            "material_id": mat_id,
+            "numero_lote": "LOTE-RAST-001",
+            "quantidade_inicial": 20,
+            "data_validade": "2028-12-31",
+        },
+        headers=auth,
+    )
+    assert r_lote.status_code == 201
+    lote_id = r_lote.json()["id"]
+
+    # 2. Registra uso no paciente Fernando (convênio Unimed, 8 exames)
+    exames_fernando = [
+        "EXAME 1 - Hemograma Completo",
+        "EXAME 2 - Sorologia Dengue IgM/IgG",
+        "EXAME 3 - Glicemia de Jejum",
+        "EXAME 4 - Colesterol Total",
+        "EXAME 5 - Triglicerídeos",
+        "EXAME 6 - TGO (AST)",
+        "EXAME 7 - TGP (ALT)",
+        "EXAME 8 - Creatinina",
+    ]
+    r_atd = client.post(
+        "/api/rastreabilidade/atendimentos",
+        json={
+            "paciente_nome": "Fernando",
+            "convenio": "Unimed",
+            "exames": exames_fernando,
+            "itens_consumidos": [
+                {"lote_id": lote_id, "quantidade": 2.5, "exame_especifico": "EXAME 2 - Sorologia Dengue IgM/IgG"}
+            ],
+        },
+        headers=auth,
+    )
+    assert r_atd.status_code == 201, r_atd.text
+    atd = r_atd.json()
+    assert atd["paciente_nome"] == "Fernando"
+    assert atd["convenio"] == "Unimed"
+    assert atd["qtd_exames"] == 8
+    assert len(atd["consumos"]) == 1
+
+    # 3. Consulta listagem de rastreabilidade filtrando por paciente=Fernando
+    r_list = client.get("/api/rastreabilidade/?paciente=Fernando", headers=auth)
+    assert r_list.status_code == 200
+    dados_rast = r_list.json()
+    assert dados_rast["resumo"]["total_registros_uso"] >= 1
+    item_fernando = dados_rast["itens"][0]
+    assert item_fernando["paciente_nome"] == "Fernando"
+    assert item_fernando["convenio"] == "Unimed"
+    assert item_fernando["qtd_exames"] == 8
+    assert item_fernando["quantidade_utilizada"] == 2.5
+
+    # 4. Verifica se o saldo do lote baixou de 20 para 17.5
+    r_lotes = client.get("/api/lotes/", headers=auth)
+    lote_atualizado = next(l for l in r_lotes.json() if l["id"] == lote_id)
+    assert float(lote_atualizado["quantidade_atual"]) == 17.5

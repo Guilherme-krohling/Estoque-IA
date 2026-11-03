@@ -382,6 +382,22 @@ export default function PrevisaoEpidemiologicaPage() {
     });
   };
 
+  // ===== Estados de Zoom (Scroll) e Pan (Arrastar com clique) — Fase 3 =====
+  const [zoomRange, setZoomRange] = useState<{ start: number; end: number } | null>(null);
+  const [isDragging, setIsDragging] = useState(false);
+  const chartContainerRef = useRef<HTMLDivElement>(null);
+  const dragStateRef = useRef<{
+    active: boolean;
+    startX: number;
+    initialStart: number;
+    initialEnd: number;
+  }>({ active: false, startX: 0, initialStart: 0, initialEnd: 0 });
+
+  // Reseta o zoom sempre que uma nova série temporal for carregada
+  useEffect(() => {
+    setZoomRange(null);
+  }, [dados]);
+
   // ===== Dados do Gráfico para Recharts =====
   const chartData = useMemo(() => {
     if (!dados?.serie_temporal || dados.serie_temporal.length === 0) return [];
@@ -389,10 +405,15 @@ export default function PrevisaoEpidemiologicaPage() {
     // O backend já recorta e aplica fallback seguro para o intervalo (data_inicio..data_fim)
     return dados.serie_temporal.map((p: any) => {
       const mesAnoLabel = formatarMesAno(p.data_inicio);
+      const partes = (p.data_inicio || "").split("-");
+      const diaMes = partes.length === 3 ? `${partes[2]}/${partes[1]}` : p.data_inicio;
+      const numSemana = p.semana_ano ? String(p.semana_ano).slice(-2) : "";
+      const semanaLabel = numSemana ? `${diaMes} · SE${numSemana}` : diaMes;
 
       return {
         ...p,
         mesAnoLabel,
+        semanaLabel,
         dengue_observado: p.tipo === "observado" ? p.dengue_casos : null,
         dengue_previsto: p.tipo === "previsto" ? p.dengue_casos : null,
         influenza_observado: p.tipo === "observado" ? p.influenza_casos : null,
@@ -400,13 +421,6 @@ export default function PrevisaoEpidemiologicaPage() {
       };
     });
   }, [dados]);
-
-  // Label do ponto de início da previsão
-  const previsaoStartLabel = useMemo(() => {
-    if (!chartData || chartData.length === 0) return null;
-    const idx = chartData.findIndex((p: any) => p.tipo === "previsto");
-    return idx >= 0 ? chartData[idx].mesAnoLabel : null;
-  }, [chartData]);
 
   // Conectar observado ao previsto
   const chartDataConectado = useMemo(() => {
@@ -427,24 +441,171 @@ export default function PrevisaoEpidemiologicaPage() {
     return result;
   }, [chartData]);
 
-  // Gerar ticks para o eixo X: apenas 1 tick por mês
-  const ticksMesAno = useMemo(() => {
-    if (!chartDataConectado || chartDataConectado.length === 0) return [];
-    const vistos = new Set<string>();
-    const ticks: string[] = [];
-    for (const ponto of chartDataConectado) {
-      if (!vistos.has(ponto.mesAnoLabel)) {
-        vistos.add(ponto.mesAnoLabel);
-        ticks.push(ponto.mesAnoLabel);
+  // Janela visível atual do gráfico (controlada por Zoom e Pan)
+  const totalPontosSerie = chartDataConectado.length;
+  const startIdx = zoomRange ? Math.max(0, Math.min(zoomRange.start, Math.max(0, totalPontosSerie - 1))) : 0;
+  const endIdx = zoomRange
+    ? Math.max(startIdx, Math.min(zoomRange.end, Math.max(0, totalPontosSerie - 1)))
+    : Math.max(0, totalPontosSerie - 1);
+
+  const visibleChartData = useMemo(() => {
+    if (totalPontosSerie === 0) return [];
+    return chartDataConectado.slice(startIdx, endIdx + 1);
+  }, [chartDataConectado, totalPontosSerie, startIdx, endIdx]);
+
+  const semanasVisiveis = visibleChartData.length;
+  const estaComZoom = totalPontosSerie > 0 && (startIdx > 0 || endIdx < totalPontosSerie - 1);
+  // Drill-down automático: quando o zoom foca em <= 24 semanas (~5-6 meses ou 1 mês), detalha por semana!
+  const modoSemanal = semanasVisiveis > 0 && semanasVisiveis <= 24;
+
+  // Mapa rápido data_inicio -> ponto para formatação instantânea dos ticks do eixo X
+  const mapaPontosPorData = useMemo(() => {
+    const mapa = new Map<string, any>();
+    for (const p of chartDataConectado) {
+      mapa.set(p.data_inicio, p);
+    }
+    return mapa;
+  }, [chartDataConectado]);
+
+  // Ticks dinâmicos do eixo X:
+  // - Em modoSemanal (Zoom): exibe as semanas epidemiológicas
+  // - Em visão macro (Mensal): exibe apenas o primeiro ponto de cada mês
+  const ticksEixoX = useMemo(() => {
+    if (!visibleChartData || visibleChartData.length === 0) return [];
+
+    if (modoSemanal) {
+      const step = visibleChartData.length <= 14 ? 1 : 2;
+      return visibleChartData
+        .filter((_, idx) => idx % step === 0 || idx === visibleChartData.length - 1)
+        .map((p: any) => p.data_inicio);
+    }
+
+    const mesesVistos = new Set<string>();
+    const ticksMensais: string[] = [];
+    for (const ponto of visibleChartData) {
+      if (!mesesVistos.has(ponto.mesAnoLabel)) {
+        mesesVistos.add(ponto.mesAnoLabel);
+        ticksMensais.push(ponto.data_inicio);
       }
     }
-    // Se tiver muitos ticks, filtrar para mostrar a cada N
-    if (ticks.length > 18) {
-      const step = Math.ceil(ticks.length / 12);
-      return ticks.filter((_, i) => i % step === 0);
+    if (ticksMensais.length > 16) {
+      const step = Math.ceil(ticksMensais.length / 12);
+      return ticksMensais.filter((_, i) => i % step === 0);
     }
-    return ticks;
-  }, [chartDataConectado]);
+    return ticksMensais;
+  }, [visibleChartData, modoSemanal]);
+
+  const formatarTickEixoX = (dataInicioVal: string) => {
+    const p = mapaPontosPorData.get(dataInicioVal);
+    if (!p) return formatarMesAno(dataInicioVal);
+    return modoSemanal ? p.semanaLabel : p.mesAnoLabel;
+  };
+
+  // Ponto de início da previsão dentro da janela visível
+  const { previsaoStartKey, mostrarLinhaDivisoriaPrevisao } = useMemo(() => {
+    if (!visibleChartData || visibleChartData.length === 0) {
+      return { previsaoStartKey: null, mostrarLinhaDivisoriaPrevisao: false };
+    }
+    const idx = visibleChartData.findIndex((p: any) => p.tipo === "previsto");
+    if (idx < 0) return { previsaoStartKey: null, mostrarLinhaDivisoriaPrevisao: false };
+    return {
+      previsaoStartKey: visibleChartData[idx].data_inicio,
+      mostrarLinhaDivisoriaPrevisao: idx > 0,
+    };
+  }, [visibleChartData]);
+
+  // Função auxiliar para aplicar zoom via botões ou roda do mouse
+  const aplicarZoom = (fator: number, centroRatio = 0.5) => {
+    if (totalPontosSerie <= 4) return;
+    const minJanela = Math.min(4, totalPontosSerie); // Permite zoom até 4 semanas (1 mês detalhado)
+    const tamanhoAtual = endIdx - startIdx + 1;
+    let novoTamanho = Math.round(tamanhoAtual * fator);
+
+    if (fator < 1 && novoTamanho === tamanhoAtual) novoTamanho = tamanhoAtual - 2;
+    if (fator > 1 && novoTamanho === tamanhoAtual) novoTamanho = tamanhoAtual + 2;
+
+    novoTamanho = Math.max(minJanela, Math.min(totalPontosSerie, novoTamanho));
+
+    if (novoTamanho >= totalPontosSerie) {
+      setZoomRange(null);
+      return;
+    }
+
+    const ancoragem = startIdx + Math.round((tamanhoAtual - 1) * centroRatio);
+    let novoStart = Math.round(ancoragem - (novoTamanho - 1) * centroRatio);
+    let novoEnd = novoStart + novoTamanho - 1;
+
+    if (novoStart < 0) {
+      novoStart = 0;
+      novoEnd = novoTamanho - 1;
+    }
+    if (novoEnd >= totalPontosSerie) {
+      novoEnd = totalPontosSerie - 1;
+      novoStart = Math.max(0, novoEnd - novoTamanho + 1);
+    }
+
+    setZoomRange({ start: novoStart, end: novoEnd });
+  };
+
+  // Listener nativo de wheel (passive: false) para dar zoom no gráfico sem rolar a página
+  useEffect(() => {
+    const el = chartContainerRef.current;
+    if (!el || totalPontosSerie <= 4) return;
+
+    const handleWheel = (e: WheelEvent) => {
+      e.preventDefault();
+      const rect = el.getBoundingClientRect();
+      const ratio = rect.width > 0 ? Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width)) : 0.5;
+      const fator = e.deltaY < 0 ? 0.8 : 1.25;
+      aplicarZoom(fator, ratio);
+    };
+
+    el.addEventListener("wheel", handleWheel, { passive: false });
+    return () => el.removeEventListener("wheel", handleWheel);
+  }, [totalPontosSerie, startIdx, endIdx]);
+
+  // Handlers de Pan (Arrastar com clique)
+  const handleMouseDownChart = (e: React.MouseEvent<HTMLDivElement>) => {
+    if (e.button !== 0 || !estaComZoom) return;
+    setIsDragging(true);
+    dragStateRef.current = {
+      active: true,
+      startX: e.clientX,
+      initialStart: startIdx,
+      initialEnd: endIdx,
+    };
+  };
+
+  const handleMouseMoveChart = (e: React.MouseEvent<HTMLDivElement>) => {
+    if (!dragStateRef.current.active || !chartContainerRef.current) return;
+    const largura = chartContainerRef.current.clientWidth || 600;
+    const deltaX = dragStateRef.current.startX - e.clientX;
+    const tamanhoJanela = dragStateRef.current.initialEnd - dragStateRef.current.initialStart + 1;
+    const deltaPontos = Math.round((deltaX / largura) * tamanhoJanela);
+
+    if (deltaPontos === 0) return;
+
+    let novoStart = dragStateRef.current.initialStart + deltaPontos;
+    let novoEnd = dragStateRef.current.initialEnd + deltaPontos;
+
+    if (novoStart < 0) {
+      novoStart = 0;
+      novoEnd = tamanhoJanela - 1;
+    }
+    if (novoEnd >= totalPontosSerie) {
+      novoEnd = totalPontosSerie - 1;
+      novoStart = Math.max(0, novoEnd - tamanhoJanela + 1);
+    }
+
+    setZoomRange({ start: novoStart, end: novoEnd });
+  };
+
+  const handleMouseUpChart = () => {
+    if (dragStateRef.current.active) {
+      dragStateRef.current.active = false;
+      setIsDragging(false);
+    }
+  };
 
   // Texto formatado do seletor de localização
   const textoBotaoLocalizacao = useMemo(() => {
@@ -879,33 +1040,96 @@ export default function PrevisaoEpidemiologicaPage() {
       </div>
 
       {/* =====================================================================
-          SEÇÃO 3 — GRÁFICO RECHARTS
+          SEÇÃO 3 — GRÁFICO RECHARTS (COM ZOOM, PAN E DRILL-DOWN SEMANAL)
       ===================================================================== */}
-      <div className="glass p-6 rounded-2xl border border-slate-700/50 space-y-2">
-        <div className="flex flex-col sm:flex-row justify-between sm:items-center gap-2">
-          <div className="flex items-center gap-2">
+      <div className="glass p-6 rounded-2xl border border-slate-700/50 space-y-2.5">
+        <div className="flex flex-col lg:flex-row justify-between lg:items-center gap-3">
+          <div className="flex items-center gap-2.5 flex-wrap">
             <span className="text-lg">📈</span>
             <div>
-              <h2 className="text-lg font-bold text-white tracking-tight">Comportamento epidemiológico e previsão</h2>
+              <div className="flex items-center gap-2 flex-wrap">
+                <h2 className="text-lg font-bold text-white tracking-tight">
+                  Comportamento epidemiológico e previsão
+                </h2>
+                {!loading && totalPontosSerie > 0 && (
+                  <span
+                    className={`px-2.5 py-0.5 rounded-full text-[10px] font-extrabold border transition-colors ${
+                      modoSemanal
+                        ? "bg-cyan-500/20 text-cyan-300 border-cyan-500/40"
+                        : "bg-slate-800 text-slate-300 border-slate-700"
+                    }`}
+                  >
+                    {modoSemanal
+                      ? `Escala Semanal (${semanasVisiveis} sem)`
+                      : `Escala Mensal (${semanasVisiveis} sem)`}
+                  </span>
+                )}
+              </div>
               <p className="text-xs text-slate-400 mt-0.5">
                 {localidades.join(", ")} · {textoPeríodo} · próximas {horizonteSemanas} semanas
               </p>
             </div>
           </div>
 
-          <div className="flex items-center gap-4 text-xs">
-            <div className="flex items-center gap-1.5 text-slate-300">
-              <span className="w-3 h-0.5 bg-current inline-block rounded" />
-              <span>Observado</span>
-            </div>
-            <div className="flex items-center gap-1.5 text-slate-300">
-              <span className="w-3 h-0.5 border-b-2 border-dashed border-current inline-block" />
-              <span>Previsto</span>
+          <div className="flex flex-wrap items-center gap-3 text-xs">
+            {/* Controles rápidos de Zoom */}
+            {!loading && totalPontosSerie > 4 && (
+              <div className="flex items-center gap-1.5 bg-slate-900/90 border border-slate-700/70 rounded-xl p-1">
+                <button
+                  onClick={() => aplicarZoom(0.75, 0.5)}
+                  disabled={semanasVisiveis <= 4}
+                  title="Aproximar zoom (detalhar semanas)"
+                  className="px-2.5 py-1 rounded-lg bg-slate-800 hover:bg-slate-700 disabled:opacity-40 text-white font-bold text-xs transition-colors"
+                >
+                  + Zoom
+                </button>
+                <button
+                  onClick={() => aplicarZoom(1.35, 0.5)}
+                  disabled={!estaComZoom}
+                  title="Afastar zoom"
+                  className="px-2.5 py-1 rounded-lg bg-slate-800 hover:bg-slate-700 disabled:opacity-40 text-white font-bold text-xs transition-colors"
+                >
+                  − Zoom
+                </button>
+                {estaComZoom && (
+                  <button
+                    onClick={() => setZoomRange(null)}
+                    title="Voltar ao período completo"
+                    className="px-2.5 py-1 rounded-lg bg-emerald-500/20 hover:bg-emerald-500/30 text-emerald-300 border border-emerald-500/30 font-semibold text-xs transition-colors"
+                  >
+                    Resetar Zoom
+                  </button>
+                )}
+              </div>
+            )}
+
+            <div className="flex items-center gap-4">
+              <div className="flex items-center gap-1.5 text-slate-300">
+                <span className="w-3 h-0.5 bg-current inline-block rounded" />
+                <span>Observado</span>
+              </div>
+              <div className="flex items-center gap-1.5 text-slate-300">
+                <span className="w-3 h-0.5 border-b-2 border-dashed border-current inline-block" />
+                <span>Previsto</span>
+              </div>
             </div>
           </div>
         </div>
 
-        <div className="w-full bg-slate-950/40 rounded-xl border border-slate-800/80 p-3 pt-4">
+        <div
+          ref={chartContainerRef}
+          onMouseDown={handleMouseDownChart}
+          onMouseMove={handleMouseMoveChart}
+          onMouseUp={handleMouseUpChart}
+          onMouseLeave={handleMouseUpChart}
+          className={`w-full bg-slate-950/40 rounded-xl border border-slate-800/80 p-3 pt-4 select-none ${
+            estaComZoom
+              ? isDragging
+                ? "cursor-grabbing"
+                : "cursor-grab"
+              : "cursor-crosshair"
+          }`}
+        >
           {loading ? (
             <div className="h-80 flex flex-col items-center justify-center gap-3 text-slate-400">
               <div className="w-8 h-8 border-2 border-emerald-400 border-t-transparent rounded-full animate-spin"></div>
@@ -926,12 +1150,12 @@ export default function PrevisaoEpidemiologicaPage() {
                 </div>
               </div>
             </div>
-          ) : chartDataConectado.length > 0 ? (
+          ) : visibleChartData.length > 0 ? (
             <>
               <ResponsiveContainer width="100%" height={360}>
                 <ComposedChart
-                  data={chartDataConectado}
-                  margin={{ top: 10, right: 20, left: 10, bottom: 10 }}
+                  data={visibleChartData}
+                  margin={{ top: 10, right: 20, left: 10, bottom: 15 }}
                 >
                   <defs>
                     <linearGradient id="gradientDengue" x1="0" y1="0" x2="0" y2="1">
@@ -947,19 +1171,20 @@ export default function PrevisaoEpidemiologicaPage() {
                   <CartesianGrid
                     strokeDasharray="4 4"
                     stroke={CORES.grid}
-                    vertical={false}
+                    vertical={modoSemanal}
                   />
 
                   <XAxis
-                    dataKey="mesAnoLabel"
-                    tick={{ fill: "#64748b", fontSize: 10 }}
+                    dataKey="data_inicio"
+                    tickFormatter={formatarTickEixoX}
+                    tick={{ fill: modoSemanal ? "#94a3b8" : "#64748b", fontSize: 10 }}
                     axisLine={{ stroke: CORES.grid }}
-                    tickLine={false}
-                    ticks={ticksMesAno}
+                    tickLine={modoSemanal}
+                    ticks={ticksEixoX}
                     interval={0}
                     angle={-35}
                     textAnchor="end"
-                    height={50}
+                    height={55}
                   />
 
                   <YAxis
@@ -973,23 +1198,23 @@ export default function PrevisaoEpidemiologicaPage() {
                   <Tooltip
                     content={<TooltipCustomizado />}
                     cursor={{
-                      stroke: "rgba(148, 163, 184, 0.3)",
+                      stroke: "rgba(148, 163, 184, 0.35)",
                       strokeWidth: 1,
                       strokeDasharray: "4 4",
                     }}
                   />
 
-                  {previsaoStartLabel && (
+                  {previsaoStartKey && (
                     <ReferenceArea
-                      x1={previsaoStartLabel}
+                      x1={previsaoStartKey}
                       fill={CORES.previsaoFill}
                       fillOpacity={1}
                     />
                   )}
 
-                  {previsaoStartLabel && (
+                  {previsaoStartKey && mostrarLinhaDivisoriaPrevisao && (
                     <ReferenceLine
-                      x={previsaoStartLabel}
+                      x={previsaoStartKey}
                       stroke="#10b981"
                       strokeWidth={1.5}
                       strokeDasharray="4 4"
@@ -1023,7 +1248,11 @@ export default function PrevisaoEpidemiologicaPage() {
                         dataKey="dengue_observado"
                         stroke={CORES.dengue}
                         strokeWidth={2.5}
-                        dot={false}
+                        dot={
+                          modoSemanal
+                            ? { r: 3, fill: CORES.dengue, stroke: "#0f172a", strokeWidth: 1.5 }
+                            : false
+                        }
                         activeDot={{
                           r: 5,
                           fill: CORES.dengue,
@@ -1039,7 +1268,11 @@ export default function PrevisaoEpidemiologicaPage() {
                         stroke={CORES.dengue}
                         strokeWidth={2.5}
                         strokeDasharray="6 4"
-                        dot={false}
+                        dot={
+                          modoSemanal
+                            ? { r: 3, fill: "#0f172a", stroke: CORES.dengue, strokeWidth: 2 }
+                            : false
+                        }
                         activeDot={{
                           r: 5,
                           fill: CORES.dengue,
@@ -1071,7 +1304,11 @@ export default function PrevisaoEpidemiologicaPage() {
                         dataKey="influenza_observado"
                         stroke={CORES.influenza}
                         strokeWidth={2.5}
-                        dot={false}
+                        dot={
+                          modoSemanal
+                            ? { r: 3, fill: CORES.influenza, stroke: "#0f172a", strokeWidth: 1.5 }
+                            : false
+                        }
                         activeDot={{
                           r: 5,
                           fill: CORES.influenza,
@@ -1087,7 +1324,11 @@ export default function PrevisaoEpidemiologicaPage() {
                         stroke={CORES.influenza}
                         strokeWidth={2.5}
                         strokeDasharray="6 4"
-                        dot={false}
+                        dot={
+                          modoSemanal
+                            ? { r: 3, fill: "#0f172a", stroke: CORES.influenza, strokeWidth: 2 }
+                            : false
+                        }
                         activeDot={{
                           r: 5,
                           fill: CORES.influenza,
@@ -1102,7 +1343,17 @@ export default function PrevisaoEpidemiologicaPage() {
                 </ComposedChart>
               </ResponsiveContainer>
 
-              <LegendaCustomizada doenca={doenca} />
+              <div className="flex flex-col sm:flex-row items-center justify-between gap-2 pt-2 border-t border-slate-800/60">
+                <LegendaCustomizada doenca={doenca} />
+                <span className="text-[11px] text-slate-400">
+                  🖱️ Role o mouse sobre o gráfico para dar <strong>Zoom (detalhar semanas)</strong> ·{" "}
+                  {estaComZoom ? (
+                    <strong className="text-emerald-400">Clique e arraste para mover o período</strong>
+                  ) : (
+                    <span>Clique e arraste quando em zoom</span>
+                  )}
+                </span>
+              </div>
             </>
           ) : (
             <div className="h-80 flex flex-col items-center justify-center text-slate-400 text-xs">

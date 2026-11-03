@@ -30,6 +30,8 @@ from app.api.endpoints import (
     locais,
     relatorios,
     ia,
+    pedidos_reposicao,
+    rastreabilidade,
 )
 
 # =====================================================================
@@ -68,8 +70,6 @@ class SecurityHeadersMiddleware(BaseHTTPMiddleware):
         response.headers["X-XSS-Protection"] = "1; mode=block"
         response.headers["Referrer-Policy"] = "strict-origin-when-cross-origin"
         response.headers["Permissions-Policy"] = "geolocation=(), microphone=(), camera=()"
-        # Em produção HTTPS, adicionar também:
-        # response.headers["Strict-Transport-Security"] = "max-age=31536000; includeSubDomains"
         return response
 
 
@@ -78,7 +78,6 @@ app.add_middleware(SecurityHeadersMiddleware)
 # =====================================================================
 # CORS — Permite comunicação com o Frontend Next.js
 # =====================================================================
-# Carrega origens do .env para flexibilidade entre dev e produção
 _raw_origins = os.getenv(
     "ALLOWED_ORIGINS",
     '["http://localhost:3000","http://127.0.0.1:3000","http://localhost:3001","http://127.0.0.1:3001","https://laurus-pi.vercel.app"]',
@@ -92,8 +91,8 @@ app.add_middleware(
     CORSMiddleware,
     allow_origins=ALLOWED_ORIGINS,
     allow_credentials=True,
-    allow_methods=["GET", "POST", "PUT", "DELETE", "PATCH"],  # Explícito — sem wildcard
-    allow_headers=["Authorization", "Content-Type"],           # Explícito — sem wildcard
+    allow_methods=["GET", "POST", "PUT", "DELETE", "PATCH"],
+    allow_headers=["Authorization", "Content-Type"],
 )
 
 # =====================================================================
@@ -110,6 +109,8 @@ app.include_router(doencas.router, prefix="/api/doencas", tags=["Doenças"])
 app.include_router(locais.router, prefix="/api/locais", tags=["Locais de Armazenamento"])
 app.include_router(relatorios.router, prefix="/api/relatorios", tags=["Relatórios"])
 app.include_router(ia.router, prefix="/api/ia", tags=["IA — Motor de Estoque"])
+app.include_router(pedidos_reposicao.router, prefix="/api/pedidos-reposicao", tags=["Pedidos de Reposição e NF"])
+app.include_router(rastreabilidade.router, prefix="/api/rastreabilidade", tags=["Rastreabilidade por Paciente"])
 
 
 # =====================================================================
@@ -117,8 +118,6 @@ app.include_router(ia.router, prefix="/api/ia", tags=["IA — Motor de Estoque"]
 # =====================================================================
 @app.exception_handler(IntegrityError)
 def integrity_error_handler(request: Request, exc: IntegrityError):
-    """Converte violações de integridade (FK, UNIQUE, NOT NULL) em 409 amigável
-    em vez de vazar stacktrace 500."""
     return JSONResponse(
         status_code=409,
         content={"detail": "Operação viola uma restrição do banco de dados (duplicidade ou referência inválida)."},
