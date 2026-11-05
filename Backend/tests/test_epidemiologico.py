@@ -211,3 +211,61 @@ def test_fluxo_rastreabilidade_paciente_convenio_exames(client, auth):
     r_lotes = client.get("/api/lotes/", headers=auth)
     lote_atualizado = next(l for l in r_lotes.json() if l["id"] == lote_id)
     assert float(lote_atualizado["quantidade_atual"]) == 17.5
+
+
+def test_crud_convenios_e_pacientes_ordem_alfabetica(client, auth):
+    # 1. Cria convênio
+    r_conv = client.post(
+        "/api/convenios/",
+        json={"nome": "Unimed", "plano": "Nacional Flex", "carencia": "Sem carência"},
+        headers=auth,
+    )
+    assert r_conv.status_code == 201, r_conv.text
+    conv_id = r_conv.json()["id"]
+
+    # 2. Cria dois pacientes fora de ordem (Zeca e Bruno) para testar ordenação alfabética A-Z
+    r_pac_z = client.post(
+        "/api/pacientes/",
+        json={
+            "nome_completo": "Zeca Pagodinho",
+            "convenio_id": conv_id,
+            "numero_carteirinha": "998877",
+            "data_nascimento": "1970-05-10",
+            "codigo_atendimento": "ATD-Z01",
+            "endereco": "Rua A, 10",
+            "cpf": "111.222.333-44",
+            "rg": "12.345.678-9",
+            "telefone": "(13) 99999-1111",
+        },
+        headers=auth,
+    )
+    assert r_pac_z.status_code == 201, r_pac_z.text
+
+    r_pac_b = client.post(
+        "/api/pacientes/",
+        json={
+            "nome_completo": "Bruno Silva",
+            "convenio_id": conv_id,
+            "numero_carteirinha": "112233",
+            "data_nascimento": "1990-01-20",
+            "codigo_atendimento": "ATD-B01",
+            "cpf": "555.666.777-88",
+            "rg": "98.765.432-1",
+            "telefone": "(13) 98888-2222",
+        },
+        headers=auth,
+    )
+    assert r_pac_b.status_code == 201, r_pac_b.text
+
+    # 3. Lista pacientes e verifica que Bruno vem antes de Zeca (ordem alfabética)
+    r_list = client.get("/api/pacientes/", headers=auth)
+    assert r_list.status_code == 200
+    nomes = [p["nome_completo"] for p in r_list.json()]
+    assert nomes.index("Bruno Silva") < nomes.index("Zeca Pagodinho")
+
+    # 4. Testa filtro de busca (?busca=Bruno)
+    r_busca = client.get("/api/pacientes/?busca=Bruno", headers=auth)
+    assert r_busca.status_code == 200
+    assert len(r_busca.json()) == 1
+    assert r_busca.json()[0]["convenio"] == "Unimed (Nacional Flex)"
+

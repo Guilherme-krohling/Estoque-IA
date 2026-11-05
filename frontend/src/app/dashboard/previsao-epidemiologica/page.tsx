@@ -664,999 +664,996 @@ export default function PrevisaoEpidemiologicaPage() {
       ===================================================================== */}
       <div className="glass p-6 rounded-2xl border border-slate-700/50 flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
         <div>
-          <div className="flex items-center gap-2 mb-2">
-            <span className="px-3 py-1 bg-emerald-500/10 text-emerald-400 text-xs font-semibold rounded-full border border-emerald-500/20">
-              Vigilância Preditiva
-            </span>
-            {loading && (
-              <span className="text-xs text-slate-400 flex items-center gap-1.5 animate-pulse">
-                <span className="w-2 h-2 rounded-full bg-cyan-400"></span>
-                Atualizando análise…
+            <div className="flex flex-wrap items-center gap-2 mb-2">
+              <span className="px-3 py-1 bg-emerald-500/10 text-emerald-400 text-xs font-semibold rounded-full border border-emerald-500/20">
+                Vigilância Preditiva
               </span>
-            )}
-          </div>
-          <h1 className="text-2xl font-bold text-white tracking-tight">Previsão Epidemiológica</h1>
-          <p className="text-slate-400 text-sm mt-1">
-            Tendências históricas e projeções para Dengue e Influenza na Baixada Santista e Estado de SP.
-          </p>
-        </div>
-
-        <div className="flex flex-wrap items-center gap-3">
-          {previsoesSalvas.length > 0 && (
-            <div className="flex flex-col">
-              <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1">
-                Previsões Salvas
-              </label>
-              <select
-                value={previsaoCarregadaId}
-                onChange={(e) => handleSelecionarPrevisaoSalva(e.target.value)}
-                className="bg-slate-900/90 border border-slate-700/70 text-xs text-slate-200 rounded-xl px-3 py-2 focus:outline-none focus:border-emerald-500 max-w-[260px]"
-              >
-                <option value="">Carregar previsão salva...</option>
-                {previsoesSalvas.map((p) => (
-                  <option key={p.id} value={String(p.id)}>
-                    {p.titulo} ({Number(p.casos_previstos || 0).toLocaleString("pt-BR")} casos)
-                  </option>
-                ))}
-              </select>
+              <span className="px-3 py-1 bg-cyan-500/10 text-cyan-300 text-xs font-medium rounded-full border border-cyan-500/20 flex items-center gap-1.5" title="Base oficial de vigilância epidemiológica">
+                Base Histórica SINAN: consolidada até Setembro/2026 (Atualizações em ciclo contínuo)
+              </span>
+              {loading && (
+                <span className="text-xs text-slate-400 flex items-center gap-1.5 animate-pulse">
+                  <span className="w-2 h-2 rounded-full bg-cyan-400"></span>
+                  Atualizando análise…
+                </span>
+              )}
             </div>
-          )}
-
-          <button
-            onClick={handleAbrirModalSalvar}
-            disabled={loading || !dados}
-            className="px-4 py-2.5 bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-400 hover:to-teal-500 disabled:opacity-50 disabled:cursor-not-allowed text-white text-xs font-bold rounded-xl shadow-lg shadow-emerald-500/20 transition-all"
-          >
-            Salvar Previsão
-          </button>
-
-          <div className="glass p-3 px-4 rounded-xl border border-slate-700/40 bg-slate-900/50 text-right">
-            <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Última Atualização</p>
-            <p className="text-xs font-semibold text-slate-200 mt-0.5">
-              {dados?.rodape?.atualizado_em || "—"}
+            <h1 className="text-2xl font-bold text-white tracking-tight">Previsão Epidemiológica</h1>
+            <p className="text-slate-400 text-sm mt-1">
+              Tendências históricas e projeções para Dengue e Influenza na Baixada Santista e Estado de SP.
             </p>
           </div>
-        </div>
-      </div>
 
-      {/* =====================================================================
-          SEÇÃO 1 — PAINEL DE FILTROS COMPACTO
-      ===================================================================== */}
-      <div className="glass p-5 rounded-2xl border border-slate-700/50 space-y-4 relative z-30">
-        <div className="flex flex-wrap items-end gap-4 justify-between">
-          {/* 1.1 DOENÇA */}
-          <div>
-            <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1.5">Doença</p>
-            <div className="flex items-center bg-slate-900/80 p-1 rounded-xl border border-slate-700/60">
-              {(["Dengue", "Influenza", "Ambas"] as const).map((opcao) => {
-                const ativo = doenca === opcao;
-                return (
-                  <button
-                    key={opcao}
-                    onClick={() => setDoenca(opcao)}
-                    className={`px-4 py-1.5 rounded-lg text-xs font-bold transition-all duration-200 ${
-                      ativo
-                        ? opcao === "Dengue"
-                          ? "bg-cyan-500/20 text-cyan-300 border border-cyan-500/40 shadow-sm"
-                          : opcao === "Influenza"
-                          ? "bg-purple-500/20 text-purple-300 border border-purple-500/40 shadow-sm"
-                          : "bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 shadow-sm"
-                        : "text-slate-400 hover:text-white border border-transparent"
-                    }`}
-                  >
-                    {opcao}
-                  </button>
-                );
-              })}
-            </div>
-          </div>
+          <div className="flex flex-wrap items-center gap-3">
+            {previsoesSalvas.length > 0 && (
+              <div className="flex flex-col">
+                <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1">
+                  Previsões Salvas
+                </label>
+                <select
+                  value={previsaoCarregadaId}
+                  onChange={(e) => handleSelecionarPrevisaoSalva(e.target.value)}
+                  className="bg-slate-900/90 border border-slate-700/70 text-xs text-slate-200 rounded-xl px-3 py-2 focus:outline-none focus:border-emerald-500 max-w-[260px]"
+                >
+                  <option value="">Carregar previsão salva...</option>
+                  {previsoesSalvas.map((p) => (
+                    <option key={p.id} value={String(p.id)}>
+                      {p.titulo} ({Number(p.casos_previstos || 0).toLocaleString("pt-BR")} casos)
+                    </option>
+                  ))}
+                </select>
+              </div>
+            )}
 
-          {/* 1.2 LOCALIZAÇÃO — z-index alto para ficar acima de tudo */}
-          <div className="relative z-50" ref={dropdownRef}>
-            <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1.5">Localização</p>
             <button
-              onClick={() => setDropdownLocalAberto(!dropdownLocalAberto)}
-              className="flex items-center gap-2 px-3.5 py-2 bg-slate-900/80 hover:bg-slate-800 border border-slate-700/60 rounded-xl text-xs font-medium text-white transition-colors min-w-[220px]"
+              onClick={handleAbrirModalSalvar}
+              disabled={loading || !dados}
+              className="px-4 py-2.5 bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-400 hover:to-teal-500 disabled:opacity-50 disabled:cursor-not-allowed text-white text-xs font-bold rounded-xl shadow-lg shadow-emerald-500/20 transition-all"
             >
-              <span className="text-slate-400">📍</span>
-              <span className="flex-1 text-left">{textoBotaoLocalizacao}</span>
-              <span className="text-[10px] text-slate-400 ml-1">▼</span>
+              Salvar Previsão
             </button>
 
-            {dropdownLocalAberto && (
-              <div className="absolute left-0 mt-2 w-72 bg-slate-900 border border-slate-700 rounded-xl shadow-2xl p-3 z-[100] animate-fade-in space-y-3"
-                style={{ position: "absolute", zIndex: 100 }}
+            <div className="glass p-3 px-4 rounded-xl border border-slate-700/40 bg-slate-900/50 text-right">
+              <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Última Atualização</p>
+              <p className="text-xs font-semibold text-slate-200 mt-0.5">
+                {dados?.rodape?.atualizado_em || "—"}
+              </p>
+            </div>
+          </div>
+        </div>
+
+        {/* =====================================================================
+          SEÇÃO 1 — PAINEL DE FILTROS COMPACTO
+      ===================================================================== */}
+        <div className="glass p-5 rounded-2xl border border-slate-700/50 space-y-4 relative z-30">
+          <div className="flex flex-wrap items-end gap-4 justify-between">
+            {/* 1.1 DOENÇA */}
+            <div>
+              <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1.5">Doença</p>
+              <div className="flex items-center bg-slate-900/80 p-1 rounded-xl border border-slate-700/60">
+                {(["Dengue", "Influenza", "Ambas"] as const).map((opcao) => {
+                  const ativo = doenca === opcao;
+                  return (
+                    <button
+                      key={opcao}
+                      onClick={() => setDoenca(opcao)}
+                      className={`px-4 py-1.5 rounded-lg text-xs font-bold transition-all duration-200 ${ativo
+                          ? opcao === "Dengue"
+                            ? "bg-cyan-500/20 text-cyan-300 border border-cyan-500/40 shadow-sm"
+                            : opcao === "Influenza"
+                              ? "bg-purple-500/20 text-purple-300 border border-purple-500/40 shadow-sm"
+                              : "bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 shadow-sm"
+                          : "text-slate-400 hover:text-white border border-transparent"
+                        }`}
+                    >
+                      {opcao}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+
+            {/* 1.2 LOCALIZAÇÃO — z-index alto para ficar acima de tudo */}
+            <div className="relative z-50" ref={dropdownRef}>
+              <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1.5">Localização</p>
+              <button
+                onClick={() => setDropdownLocalAberto(!dropdownLocalAberto)}
+                className="flex items-center gap-2 px-3.5 py-2 bg-slate-900/80 hover:bg-slate-800 border border-slate-700/60 rounded-xl text-xs font-medium text-white transition-colors min-w-[220px]"
               >
-                <p className="text-xs text-slate-300 font-medium">Selecione uma ou mais áreas</p>
+                <span className="text-slate-400">📍</span>
+                <span className="flex-1 text-left">{textoBotaoLocalizacao}</span>
+                <span className="text-[10px] text-slate-400 ml-1">▼</span>
+              </button>
 
-                <div>
-                  <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400 mb-1.5">
-                    Abrangência Estadual
-                  </p>
-                  <label className="flex items-center gap-2 text-xs text-slate-200 hover:text-white p-1 rounded hover:bg-slate-800/60 cursor-pointer">
-                    <input
-                      type="checkbox"
-                      checked={localidades.includes("Estado de São Paulo")}
-                      onChange={() => toggleLocalidade("Estado de São Paulo")}
-                      className="rounded border-slate-600 text-emerald-500 focus:ring-emerald-500/20"
-                    />
-                    <span>Estado de São Paulo</span>
-                  </label>
-                </div>
+              {dropdownLocalAberto && (
+                <div className="absolute left-0 mt-2 w-72 bg-slate-900 border border-slate-700 rounded-xl shadow-2xl p-3 z-[100] animate-fade-in space-y-3"
+                  style={{ position: "absolute", zIndex: 100 }}
+                >
+                  <p className="text-xs text-slate-300 font-medium">Selecione uma ou mais áreas</p>
 
-                <div className="border-t border-slate-800 pt-2">
-                  <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400 mb-1.5">
-                    Região Metropolitana da Baixada Santista
-                  </p>
-                  <div className="space-y-1 max-h-48 overflow-y-auto pr-1">
-                    {LOCALIDADES_DISPONIVEIS.filter((l) => l.grupo.includes("BAIXADA")).map((item) => (
-                      <label
-                        key={item.id}
-                        className="flex items-center gap-2 text-xs text-slate-200 hover:text-white p-1 rounded hover:bg-slate-800/60 cursor-pointer"
-                      >
-                        <input
-                          type="checkbox"
-                          checked={localidades.includes(item.id)}
-                          onChange={() => toggleLocalidade(item.id)}
-                          className="rounded border-slate-600 text-emerald-500 focus:ring-emerald-500/20"
-                        />
-                        <span className={item.id === "Baixada Santista" ? "font-semibold text-emerald-400" : ""}>
-                          {item.label}
-                        </span>
-                      </label>
-                    ))}
+                  <div>
+                    <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400 mb-1.5">
+                      Abrangência Estadual
+                    </p>
+                    <label className="flex items-center gap-2 text-xs text-slate-200 hover:text-white p-1 rounded hover:bg-slate-800/60 cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={localidades.includes("Estado de São Paulo")}
+                        onChange={() => toggleLocalidade("Estado de São Paulo")}
+                        className="rounded border-slate-600 text-emerald-500 focus:ring-emerald-500/20"
+                      />
+                      <span>Estado de São Paulo</span>
+                    </label>
+                  </div>
+
+                  <div className="border-t border-slate-800 pt-2">
+                    <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400 mb-1.5">
+                      Região Metropolitana da Baixada Santista
+                    </p>
+                    <div className="space-y-1 max-h-48 overflow-y-auto pr-1">
+                      {LOCALIDADES_DISPONIVEIS.filter((l) => l.grupo.includes("BAIXADA")).map((item) => (
+                        <label
+                          key={item.id}
+                          className="flex items-center gap-2 text-xs text-slate-200 hover:text-white p-1 rounded hover:bg-slate-800/60 cursor-pointer"
+                        >
+                          <input
+                            type="checkbox"
+                            checked={localidades.includes(item.id)}
+                            onChange={() => toggleLocalidade(item.id)}
+                            className="rounded border-slate-600 text-emerald-500 focus:ring-emerald-500/20"
+                          />
+                          <span className={item.id === "Baixada Santista" ? "font-semibold text-emerald-400" : ""}>
+                            {item.label}
+                          </span>
+                        </label>
+                      ))}
+                    </div>
+                  </div>
+
+                  <div className="border-t border-slate-800 pt-2 text-[10px] text-emerald-400/70 text-center">
+                    7 localidades com dados disponíveis
                   </div>
                 </div>
-
-                <div className="border-t border-slate-800 pt-2 text-[10px] text-emerald-400/70 text-center">
-                  7 localidades com dados disponíveis
-                </div>
-              </div>
-            )}
-          </div>
-
-          {/* 1.3 PERÍODO (Mês/Ano de início e fim) */}
-          <div>
-            <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1.5">Período Histórico</p>
-            <div className="flex items-center gap-2">
-              <select
-                value={periodoInicio}
-                onChange={(e) => {
-                  setPeriodoInicio(e.target.value);
-                  // Garante que o fim não fique antes do início
-                  if (e.target.value > periodoFim) {
-                    setPeriodoFim(e.target.value);
-                  }
-                }}
-                className="bg-slate-900/80 border border-slate-700/60 text-xs text-white rounded-xl px-2.5 py-2 focus:outline-none focus:border-emerald-500"
-              >
-                {OPCOES_MES_ANO.map((o) => (
-                  <option key={o.valor} value={o.valor}>
-                    {o.label}
-                  </option>
-                ))}
-              </select>
-              <span className="text-xs text-slate-400">até</span>
-              <select
-                value={periodoFim}
-                onChange={(e) => setPeriodoFim(e.target.value)}
-                className="bg-slate-900/80 border border-slate-700/60 text-xs text-white rounded-xl px-2.5 py-2 focus:outline-none focus:border-emerald-500"
-              >
-                {opcoesFimFiltradas.map((o) => (
-                  <option key={o.valor} value={o.valor}>
-                    {o.label}
-                  </option>
-                ))}
-              </select>
+              )}
             </div>
-          </div>
 
-          {/* 1.4 HORIZONTE (Slider de Semanas) */}
-          <div className="min-w-[220px]">
-            <div className="flex justify-between items-center text-xs mb-1.5">
-              <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Horizonte:</span>
-              <span className="text-emerald-400 font-bold text-xs">próximas {horizonteSemanas} semanas</span>
-            </div>
-            <div className="flex items-center gap-2">
-              <span className="text-[10px] text-slate-400">4</span>
-              <input
-                type="range"
-                min={4}
-                max={20}
-                step={1}
-                value={horizonteSemanas}
-                onChange={(e) => setHorizonteSemanas(Number(e.target.value))}
-                className="w-full accent-emerald-500 cursor-pointer h-1.5 bg-slate-800 rounded-lg"
-              />
-              <span className="text-[10px] text-slate-400">20</span>
-            </div>
-          </div>
-
-          {/* 1.5 BOTÃO AVANÇADOS */}
-          <button
-            onClick={() => setMostrarAvancados(!mostrarAvancados)}
-            className={`flex items-center gap-2 px-3 py-2 rounded-xl text-xs font-semibold border transition-all ${
-              mostrarAvancados
-                ? "bg-slate-800 text-white border-slate-600"
-                : "bg-slate-900/80 text-slate-400 border-slate-700/60 hover:text-white"
-            }`}
-          >
-            <span>⚙️</span>
-            <span>Avançados</span>
-            <span className="text-[10px]">{mostrarAvancados ? "▲" : "▼"}</span>
-          </button>
-        </div>
-
-        {/* ÁREA EXPANSÍVEL DE AVANÇADOS */}
-        {mostrarAvancados && (
-          <div className="pt-3 border-t border-slate-800/80 grid grid-cols-1 sm:grid-cols-3 gap-4 animate-fade-in bg-slate-950/30 p-3 rounded-xl">
+            {/* 1.3 PERÍODO (Mês/Ano de início e fim) */}
             <div>
-              <p className="text-[11px] font-bold text-slate-400 uppercase tracking-wider mb-1.5">
-                Modo de Previsão
-              </p>
-              <div className="flex gap-2">
-                <button
-                  onClick={() => setModo("ampliado")}
-                  className={`flex-1 py-1 px-2 rounded-lg text-xs font-medium border ${
-                    modo === "ampliado"
-                      ? "bg-emerald-500/20 text-emerald-300 border-emerald-500/40"
-                      : "bg-slate-900 text-slate-400 border-slate-800 hover:text-white"
-                  }`}
-                  title="Inclui casos suspeitos notificados (mais realista para consumo de kits)"
+              <div className="flex items-center gap-2 mb-1.5">
+                <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Período Histórico</p>
+                <span className="text-[10px] text-cyan-300 font-medium px-1.5 py-0.5 rounded bg-cyan-500/10 border border-cyan-500/20">
+                  Consolidado até Set/2026
+                </span>
+              </div>
+              <div className="flex items-center gap-2">
+                <select
+                  value={periodoInicio}
+                  onChange={(e) => {
+                    setPeriodoInicio(e.target.value);
+                    // Garante que o fim não fique antes do início
+                    if (e.target.value > periodoFim) {
+                      setPeriodoFim(e.target.value);
+                    }
+                  }}
+                  className="bg-slate-900/80 border border-slate-700/60 text-xs text-white rounded-xl px-2.5 py-2 focus:outline-none focus:border-emerald-500"
                 >
-                  Notificados (Ampliado)
-                </button>
-                <button
-                  onClick={() => setModo("conservador")}
-                  className={`flex-1 py-1 px-2 rounded-lg text-xs font-medium border ${
-                    modo === "conservador"
-                      ? "bg-emerald-500/20 text-emerald-300 border-emerald-500/40"
-                      : "bg-slate-900 text-slate-400 border-slate-800 hover:text-white"
-                  }`}
-                  title="Apenas casos confirmados laboratorialmente"
+                  {OPCOES_MES_ANO.map((o) => (
+                    <option key={o.valor} value={o.valor}>
+                      {o.label}
+                    </option>
+                  ))}
+                </select>
+                <span className="text-xs text-slate-400">até</span>
+                <select
+                  value={periodoFim}
+                  onChange={(e) => setPeriodoFim(e.target.value)}
+                  className="bg-slate-900/80 border border-slate-700/60 text-xs text-white rounded-xl px-2.5 py-2 focus:outline-none focus:border-emerald-500"
                 >
-                  Confirmados
-                </button>
+                  {opcoesFimFiltradas.map((o) => (
+                    <option key={o.valor} value={o.valor}>
+                      {o.label}
+                    </option>
+                  ))}
+                </select>
               </div>
             </div>
 
-            <div>
-              <p className="text-[11px] font-bold text-slate-400 uppercase tracking-wider mb-1.5">
-                Faixa Etária
-              </p>
-              <select
-                value={faixaEtaria}
-                onChange={(e) => setFaixaEtaria(e.target.value)}
-                className="w-full bg-slate-900 border border-slate-800 text-xs text-slate-200 rounded-lg p-1.5 focus:outline-none"
-              >
-                <option value="todas">Todas as idades</option>
-                <option value="0-19">0 a 19 anos</option>
-                <option value="20-59">20 a 59 anos</option>
-                <option value="60+">60 anos ou mais</option>
-              </select>
+            {/* 1.4 HORIZONTE (Slider de Semanas) */}
+            <div className="min-w-[220px]">
+              <div className="flex justify-between items-center text-xs mb-1.5">
+                <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Horizonte:</span>
+                <span className="text-emerald-400 font-bold text-xs">próximas {horizonteSemanas} semanas</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <span className="text-[10px] text-slate-400">4</span>
+                <input
+                  type="range"
+                  min={4}
+                  max={20}
+                  step={1}
+                  value={horizonteSemanas}
+                  onChange={(e) => setHorizonteSemanas(Number(e.target.value))}
+                  className="w-full accent-emerald-500 cursor-pointer h-1.5 bg-slate-800 rounded-lg"
+                />
+                <span className="text-[10px] text-slate-400">20</span>
+              </div>
             </div>
 
-            <div>
-              <p className="text-[11px] font-bold text-slate-400 uppercase tracking-wider mb-1.5">
-                Sexo
-              </p>
-              <select
-                value={sexo}
-                onChange={(e) => setSexo(e.target.value)}
-                className="w-full bg-slate-900 border border-slate-800 text-xs text-slate-200 rounded-lg p-1.5 focus:outline-none"
-              >
-                <option value="todos">Todos</option>
-                <option value="F">Feminino</option>
-                <option value="M">Masculino</option>
-              </select>
-            </div>
-          </div>
-        )}
-      </div>
-
-      {/* =====================================================================
-          SEÇÃO 2 — 5 CARTÕES DE INDICADORES
-      ===================================================================== */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3.5">
-        <div className="glass p-4 rounded-xl border border-slate-700/50 flex flex-col justify-between">
-          <p className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">Casos Recentes</p>
-          <div className="my-2">
-            <p className="text-2xl font-extrabold text-white tracking-tight">
-              {loading ? "…" : dados?.indicadores?.casos_recentes ?? "0"}
-            </p>
-          </div>
-          <p className="text-[11px] text-slate-400">última semana observada</p>
-        </div>
-
-        <div className="glass p-4 rounded-xl border border-slate-700/50 flex flex-col justify-between">
-          <p className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">Casos Previstos</p>
-          <div className="my-2">
-            <p className="text-2xl font-extrabold text-white tracking-tight">
-              {loading ? "…" : (dados?.indicadores?.casos_previstos ?? 0).toLocaleString("pt-BR")}
-            </p>
-          </div>
-          <p className="text-[11px] text-slate-400">acumulado em {horizonteSemanas} semanas</p>
-        </div>
-
-        <div className="glass p-4 rounded-xl border border-slate-700/50 flex flex-col justify-between">
-          <p className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">Mudança esperada nos casos</p>
-          <div className="my-2 flex items-baseline gap-1">
-            {loading ? (
-              <p className="text-2xl font-extrabold text-white">…</p>
-            ) : (
-              <p
-                className={`text-2xl font-extrabold ${
-                  (dados?.indicadores?.mudanca_esperada_pct ?? 0) > 0
-                    ? "text-amber-400"
-                    : (dados?.indicadores?.mudanca_esperada_pct ?? 0) < 0
-                    ? "text-emerald-400"
-                    : "text-slate-300"
+            {/* 1.5 BOTÃO AVANÇADOS */}
+            <button
+              onClick={() => setMostrarAvancados(!mostrarAvancados)}
+              className={`flex items-center gap-2 px-3 py-2 rounded-xl text-xs font-semibold border transition-all ${mostrarAvancados
+                  ? "bg-slate-800 text-white border-slate-600"
+                  : "bg-slate-900/80 text-slate-400 border-slate-700/60 hover:text-white"
                 }`}
-              >
-                {(dados?.indicadores?.mudanca_esperada_pct ?? 0) > 0 ? "+" : ""}
-                {dados?.indicadores?.mudanca_esperada_pct ?? 0}%
-              </p>
-            )}
-          </div>
-          <p className="text-[11px] text-slate-400">vs. média das últimas 8 semanas</p>
-        </div>
-
-        {/* Pico Esperado — mostra data exata */}
-        <div className="glass p-4 rounded-xl border border-slate-700/50 flex flex-col justify-between">
-          <p className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">Pico Esperado</p>
-          <div className="my-2">
-            <p className="text-2xl font-extrabold text-white tracking-tight">
-              {loading
-                ? "…"
-                : dados?.indicadores?.pico_data
-                ? formatarDataBR(dados.indicadores.pico_data)
-                : "—"}
-            </p>
-          </div>
-          <p className="text-[11px] text-slate-400">
-            {loading
-              ? "…"
-              : `${(dados?.indicadores?.pico_casos ?? 0).toLocaleString("pt-BR")} casos estimados`}
-          </p>
-        </div>
-
-        <div className="glass p-4 rounded-xl border border-slate-700/50 flex flex-col justify-between">
-          <p className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">Tendência</p>
-          <div className="my-2">
-            <span
-              className={`inline-block px-3 py-1 rounded-full text-xs font-bold border ${
-                dados?.indicadores?.tendencia?.includes("Crescente")
-                  ? "bg-amber-500/20 text-amber-300 border-amber-500/40"
-                  : dados?.indicadores?.tendencia?.includes("Decrescente")
-                  ? "bg-emerald-500/20 text-emerald-300 border-emerald-500/40"
-                  : "bg-slate-800 text-slate-300 border-slate-700"
-              }`}
             >
-              {loading ? "…" : dados?.indicadores?.tendencia ?? "Estável"}
-            </span>
-          </div>
-          <p className="text-[11px] text-slate-400">durante as próximas {horizonteSemanas} semanas</p>
-        </div>
-      </div>
-
-      {/* =====================================================================
-          SEÇÃO 3 — GRÁFICO RECHARTS (COM ZOOM, PAN E DRILL-DOWN SEMANAL)
-      ===================================================================== */}
-      <div className="glass p-6 rounded-2xl border border-slate-700/50 space-y-2.5">
-        <div className="flex flex-col lg:flex-row justify-between lg:items-center gap-3">
-          <div className="flex items-center gap-2.5 flex-wrap">
-            <span className="text-lg">📈</span>
-            <div>
-              <div className="flex items-center gap-2 flex-wrap">
-                <h2 className="text-lg font-bold text-white tracking-tight">
-                  Comportamento epidemiológico e previsão
-                </h2>
-                {!loading && totalPontosSerie > 0 && (
-                  <span
-                    className={`px-2.5 py-0.5 rounded-full text-[10px] font-extrabold border transition-colors ${
-                      modoSemanal
-                        ? "bg-cyan-500/20 text-cyan-300 border-cyan-500/40"
-                        : "bg-slate-800 text-slate-300 border-slate-700"
-                    }`}
-                  >
-                    {modoSemanal
-                      ? `Escala Semanal (${semanasVisiveis} sem)`
-                      : `Escala Mensal (${semanasVisiveis} sem)`}
-                  </span>
-                )}
-              </div>
-              <p className="text-xs text-slate-400 mt-0.5">
-                {localidades.join(", ")} · {textoPeríodo} · próximas {horizonteSemanas} semanas
-              </p>
-            </div>
+              <span>⚙️</span>
+              <span>Avançados</span>
+              <span className="text-[10px]">{mostrarAvancados ? "▲" : "▼"}</span>
+            </button>
           </div>
 
-          <div className="flex flex-wrap items-center gap-3 text-xs">
-            {/* Controles rápidos de Zoom */}
-            {!loading && totalPontosSerie > 4 && (
-              <div className="flex items-center gap-1.5 bg-slate-900/90 border border-slate-700/70 rounded-xl p-1">
-                <button
-                  onClick={() => aplicarZoom(0.75, 0.5)}
-                  disabled={semanasVisiveis <= 4}
-                  title="Aproximar zoom (detalhar semanas)"
-                  className="px-2.5 py-1 rounded-lg bg-slate-800 hover:bg-slate-700 disabled:opacity-40 text-white font-bold text-xs transition-colors"
-                >
-                  + Zoom
-                </button>
-                <button
-                  onClick={() => aplicarZoom(1.35, 0.5)}
-                  disabled={!estaComZoom}
-                  title="Afastar zoom"
-                  className="px-2.5 py-1 rounded-lg bg-slate-800 hover:bg-slate-700 disabled:opacity-40 text-white font-bold text-xs transition-colors"
-                >
-                  − Zoom
-                </button>
-                {estaComZoom && (
+          {/* ÁREA EXPANSÍVEL DE AVANÇADOS */}
+          {mostrarAvancados && (
+            <div className="pt-3 border-t border-slate-800/80 grid grid-cols-1 sm:grid-cols-3 gap-4 animate-fade-in bg-slate-950/30 p-3 rounded-xl">
+              <div>
+                <p className="text-[11px] font-bold text-slate-400 uppercase tracking-wider mb-1.5">
+                  Modo de Previsão
+                </p>
+                <div className="flex gap-2">
                   <button
-                    onClick={() => setZoomRange(null)}
-                    title="Voltar ao período completo"
-                    className="px-2.5 py-1 rounded-lg bg-emerald-500/20 hover:bg-emerald-500/30 text-emerald-300 border border-emerald-500/30 font-semibold text-xs transition-colors"
+                    onClick={() => setModo("ampliado")}
+                    className={`flex-1 py-1 px-2 rounded-lg text-xs font-medium border ${modo === "ampliado"
+                        ? "bg-emerald-500/20 text-emerald-300 border-emerald-500/40"
+                        : "bg-slate-900 text-slate-400 border-slate-800 hover:text-white"
+                      }`}
+                    title="Inclui casos suspeitos notificados (mais realista para consumo de kits)"
                   >
-                    Resetar Zoom
+                    Notificados (Ampliado)
                   </button>
-                )}
-              </div>
-            )}
-
-            <div className="flex items-center gap-4">
-              <div className="flex items-center gap-1.5 text-slate-300">
-                <span className="w-3 h-0.5 bg-current inline-block rounded" />
-                <span>Observado</span>
-              </div>
-              <div className="flex items-center gap-1.5 text-slate-300">
-                <span className="w-3 h-0.5 border-b-2 border-dashed border-current inline-block" />
-                <span>Previsto</span>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        <div
-          ref={chartContainerRef}
-          onMouseDown={handleMouseDownChart}
-          onMouseMove={handleMouseMoveChart}
-          onMouseUp={handleMouseUpChart}
-          onMouseLeave={handleMouseUpChart}
-          className={`w-full bg-slate-950/40 rounded-xl border border-slate-800/80 p-3 pt-4 select-none ${
-            estaComZoom
-              ? isDragging
-                ? "cursor-grabbing"
-                : "cursor-grab"
-              : "cursor-crosshair"
-          }`}
-        >
-          {loading ? (
-            <div className="h-80 flex flex-col items-center justify-center gap-3 text-slate-400">
-              <div className="w-8 h-8 border-2 border-emerald-400 border-t-transparent rounded-full animate-spin"></div>
-              <p className="text-xs font-medium text-slate-300">
-                Calculando projeção Prophet com série temporal...
-              </p>
-              <div className="flex flex-col items-center gap-1.5">
-                <span className="px-3 py-1 rounded-full bg-slate-900/90 border border-emerald-500/30 text-[11px] font-semibold text-emerald-400 tabular-nums">
-                  ⏱️ Tempo estimado: ~{ Math.max(0.1, Number((tempoEstimadoSegundos - segundosDecorridos).toFixed(1))) }s restantes ({segundosDecorridos.toFixed(1)}s decorridos)
-                </span>
-                <div className="w-48 h-1.5 bg-slate-800 rounded-full overflow-hidden">
-                  <div
-                    className="h-full bg-emerald-400 transition-all duration-100"
-                    style={{
-                      width: `${Math.min(95, Math.round((segundosDecorridos / tempoEstimadoSegundos) * 100))}%`,
-                    }}
-                  />
+                  <button
+                    onClick={() => setModo("conservador")}
+                    className={`flex-1 py-1 px-2 rounded-lg text-xs font-medium border ${modo === "conservador"
+                        ? "bg-emerald-500/20 text-emerald-300 border-emerald-500/40"
+                        : "bg-slate-900 text-slate-400 border-slate-800 hover:text-white"
+                      }`}
+                    title="Apenas casos confirmados laboratorialmente"
+                  >
+                    Confirmados
+                  </button>
                 </div>
               </div>
-            </div>
-          ) : visibleChartData.length > 0 ? (
-            <>
-              <ResponsiveContainer width="100%" height={360}>
-                <ComposedChart
-                  data={visibleChartData}
-                  margin={{ top: 10, right: 20, left: 10, bottom: 15 }}
+
+              <div>
+                <p className="text-[11px] font-bold text-slate-400 uppercase tracking-wider mb-1.5">
+                  Faixa Etária
+                </p>
+                <select
+                  value={faixaEtaria}
+                  onChange={(e) => setFaixaEtaria(e.target.value)}
+                  className="w-full bg-slate-900 border border-slate-800 text-xs text-slate-200 rounded-lg p-1.5 focus:outline-none"
                 >
-                  <defs>
-                    <linearGradient id="gradientDengue" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="0%" stopColor={CORES.dengue} stopOpacity={0.15} />
-                      <stop offset="100%" stopColor={CORES.dengue} stopOpacity={0.01} />
-                    </linearGradient>
-                    <linearGradient id="gradientInfluenza" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="0%" stopColor={CORES.influenza} stopOpacity={0.15} />
-                      <stop offset="100%" stopColor={CORES.influenza} stopOpacity={0.01} />
-                    </linearGradient>
-                  </defs>
-
-                  <CartesianGrid
-                    strokeDasharray="4 4"
-                    stroke={CORES.grid}
-                    vertical={modoSemanal}
-                  />
-
-                  <XAxis
-                    dataKey="data_inicio"
-                    tickFormatter={formatarTickEixoX}
-                    tick={{ fill: modoSemanal ? "#94a3b8" : "#64748b", fontSize: 10 }}
-                    axisLine={{ stroke: CORES.grid }}
-                    tickLine={modoSemanal}
-                    ticks={ticksEixoX}
-                    interval={0}
-                    angle={-35}
-                    textAnchor="end"
-                    height={55}
-                  />
-
-                  <YAxis
-                    tickFormatter={formatarEixoY}
-                    tick={{ fill: "#64748b", fontSize: 10 }}
-                    axisLine={false}
-                    tickLine={false}
-                    width={45}
-                  />
-
-                  <Tooltip
-                    content={<TooltipCustomizado />}
-                    cursor={{
-                      stroke: "rgba(148, 163, 184, 0.35)",
-                      strokeWidth: 1,
-                      strokeDasharray: "4 4",
-                    }}
-                  />
-
-                  {previsaoStartKey && (
-                    <ReferenceArea
-                      x1={previsaoStartKey}
-                      fill={CORES.previsaoFill}
-                      fillOpacity={1}
-                    />
-                  )}
-
-                  {previsaoStartKey && mostrarLinhaDivisoriaPrevisao && (
-                    <ReferenceLine
-                      x={previsaoStartKey}
-                      stroke="#10b981"
-                      strokeWidth={1.5}
-                      strokeDasharray="4 4"
-                      label={{
-                        value: "Início da previsão",
-                        position: "insideTopRight",
-                        fill: "#34d399",
-                        fontSize: 10,
-                        fontWeight: "bold",
-                        offset: 8,
-                      }}
-                    />
-                  )}
-
-                  {/* === DENGUE === */}
-                  {doenca !== "Influenza" && (
-                    <>
-                      <Area
-                        type="monotone"
-                        dataKey="dengue_observado"
-                        stroke="none"
-                        fill="url(#gradientDengue)"
-                        fillOpacity={1}
-                        connectNulls={false}
-                        dot={false}
-                        activeDot={false}
-                        isAnimationActive={false}
-                      />
-                      <Line
-                        type="monotone"
-                        dataKey="dengue_observado"
-                        stroke={CORES.dengue}
-                        strokeWidth={2.5}
-                        dot={
-                          modoSemanal
-                            ? { r: 3, fill: CORES.dengue, stroke: "#0f172a", strokeWidth: 1.5 }
-                            : false
-                        }
-                        activeDot={{
-                          r: 5,
-                          fill: CORES.dengue,
-                          stroke: "#0f172a",
-                          strokeWidth: 2,
-                        }}
-                        connectNulls={false}
-                        isAnimationActive={false}
-                      />
-                      <Line
-                        type="monotone"
-                        dataKey="dengue_previsto"
-                        stroke={CORES.dengue}
-                        strokeWidth={2.5}
-                        strokeDasharray="6 4"
-                        dot={
-                          modoSemanal
-                            ? { r: 3, fill: "#0f172a", stroke: CORES.dengue, strokeWidth: 2 }
-                            : false
-                        }
-                        activeDot={{
-                          r: 5,
-                          fill: CORES.dengue,
-                          stroke: "#0f172a",
-                          strokeWidth: 2,
-                        }}
-                        connectNulls={false}
-                        isAnimationActive={false}
-                      />
-                    </>
-                  )}
-
-                  {/* === INFLUENZA === */}
-                  {doenca !== "Dengue" && (
-                    <>
-                      <Area
-                        type="monotone"
-                        dataKey="influenza_observado"
-                        stroke="none"
-                        fill="url(#gradientInfluenza)"
-                        fillOpacity={1}
-                        connectNulls={false}
-                        dot={false}
-                        activeDot={false}
-                        isAnimationActive={false}
-                      />
-                      <Line
-                        type="monotone"
-                        dataKey="influenza_observado"
-                        stroke={CORES.influenza}
-                        strokeWidth={2.5}
-                        dot={
-                          modoSemanal
-                            ? { r: 3, fill: CORES.influenza, stroke: "#0f172a", strokeWidth: 1.5 }
-                            : false
-                        }
-                        activeDot={{
-                          r: 5,
-                          fill: CORES.influenza,
-                          stroke: "#0f172a",
-                          strokeWidth: 2,
-                        }}
-                        connectNulls={false}
-                        isAnimationActive={false}
-                      />
-                      <Line
-                        type="monotone"
-                        dataKey="influenza_previsto"
-                        stroke={CORES.influenza}
-                        strokeWidth={2.5}
-                        strokeDasharray="6 4"
-                        dot={
-                          modoSemanal
-                            ? { r: 3, fill: "#0f172a", stroke: CORES.influenza, strokeWidth: 2 }
-                            : false
-                        }
-                        activeDot={{
-                          r: 5,
-                          fill: CORES.influenza,
-                          stroke: "#0f172a",
-                          strokeWidth: 2,
-                        }}
-                        connectNulls={false}
-                        isAnimationActive={false}
-                      />
-                    </>
-                  )}
-                </ComposedChart>
-              </ResponsiveContainer>
-
-              <div className="flex flex-col sm:flex-row items-center justify-between gap-2 pt-2 border-t border-slate-800/60">
-                <LegendaCustomizada doenca={doenca} />
-                <span className="text-[11px] text-slate-400">
-                  🖱️ Role o mouse sobre o gráfico para dar <strong>Zoom (detalhar semanas)</strong> ·{" "}
-                  {estaComZoom ? (
-                    <strong className="text-emerald-400">Clique e arraste para mover o período</strong>
-                  ) : (
-                    <span>Clique e arraste quando em zoom</span>
-                  )}
-                </span>
+                  <option value="todas">Todas as idades</option>
+                  <option value="0-19">0 a 19 anos</option>
+                  <option value="20-59">20 a 59 anos</option>
+                  <option value="60+">60 anos ou mais</option>
+                </select>
               </div>
-            </>
-          ) : (
-            <div className="h-80 flex flex-col items-center justify-center text-slate-400 text-xs">
-              <span>Nenhum dado epidemiológico para a combinação selecionada.</span>
+
+              <div>
+                <p className="text-[11px] font-bold text-slate-400 uppercase tracking-wider mb-1.5">
+                  Sexo
+                </p>
+                <select
+                  value={sexo}
+                  onChange={(e) => setSexo(e.target.value)}
+                  className="w-full bg-slate-900 border border-slate-800 text-xs text-slate-200 rounded-lg p-1.5 focus:outline-none"
+                >
+                  <option value="todos">Todos</option>
+                  <option value="F">Feminino</option>
+                  <option value="M">Masculino</option>
+                </select>
+              </div>
             </div>
           )}
         </div>
-      </div>
 
-      {/* =====================================================================
-          SEÇÃO 4 — PANORAMA EPIDEMIOLÓGICO E DISTRIBUIÇÃO
+        {/* =====================================================================
+          SEÇÃO 2 — 5 CARTÕES DE INDICADORES
       ===================================================================== */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        <div className="glass p-6 rounded-2xl border border-slate-700/50 lg:col-span-2 flex flex-col justify-between">
-          <div>
-            <div className="flex items-center gap-2 mb-3">
-              <span className="text-lg">📋</span>
-              <h3 className="text-base font-bold text-white tracking-tight">Panorama epidemiológico</h3>
-            </div>
-            <p className="text-sm text-slate-300 leading-relaxed">
-              {loading
-                ? "Calculando panorama preditivo..."
-                : dados?.panorama_texto ||
-                  "A atividade viral está sendo monitorada com base nos dados de vigilância epidemiológica regional."}
-            </p>
-          </div>
-          <div className="mt-4 pt-3 border-t border-slate-800/80 flex items-center justify-between text-xs text-slate-400">
-            <span>Região: {localidades.join(", ")}</span>
-            <span>Horizonte: {horizonteSemanas} semanas</span>
-          </div>
-        </div>
-
-        {/* Distribuição — Usa cálculo local para garantir valores corretos */}
-        <div className="glass p-6 rounded-2xl border border-slate-700/50 flex flex-col justify-between">
-          <div>
-            <h3 className="text-base font-bold text-white tracking-tight mb-4">Distribuição da previsão</h3>
-
-            <div className="space-y-4">
-              <div className="w-full h-3.5 bg-slate-800 rounded-full overflow-hidden flex">
-                <div
-                  style={{ width: `${distribuicaoLocal.total_previsto > 0 ? distribuicaoLocal.dengue.percentual : 50}%` }}
-                  className="bg-cyan-500 transition-all duration-500"
-                />
-                <div
-                  style={{ width: `${distribuicaoLocal.total_previsto > 0 ? distribuicaoLocal.influenza.percentual : 50}%` }}
-                  className="bg-purple-500 transition-all duration-500"
-                />
-              </div>
-
-              <div className="space-y-2 text-xs">
-                <div className="flex items-center justify-between p-2 rounded-lg bg-slate-900/60 border border-slate-800">
-                  <span className="flex items-center gap-2 text-cyan-400 font-semibold">
-                    <span className="w-2.5 h-2.5 rounded-full bg-cyan-400"></span>
-                    Dengue
-                  </span>
-                  <span className="text-white font-bold">
-                    {distribuicaoLocal.dengue.casos.toLocaleString("pt-BR")} ({distribuicaoLocal.dengue.percentual}%)
-                  </span>
-                </div>
-                <div className="flex items-center justify-between p-2 rounded-lg bg-slate-900/60 border border-slate-800">
-                  <span className="flex items-center gap-2 text-purple-400 font-semibold">
-                    <span className="w-2.5 h-2.5 rounded-full bg-purple-400"></span>
-                    Influenza
-                  </span>
-                  <span className="text-white font-bold">
-                    {distribuicaoLocal.influenza.casos.toLocaleString("pt-BR")} ({distribuicaoLocal.influenza.percentual}%)
-                  </span>
-                </div>
-              </div>
-            </div>
-          </div>
-
-          <div className="mt-4 text-center">
-            <span className="text-xs text-slate-400">
-              Total Projetado: <strong className="text-white">{distribuicaoLocal.total_previsto.toLocaleString("pt-BR")} casos</strong>
-            </span>
-          </div>
-        </div>
-      </div>
-
-      {/* =====================================================================
-          SEÇÃO 5 — POTENCIAL IMPACTO NA DEMANDA LABORATORIAL
-      ===================================================================== */}
-      <div className="glass p-6 rounded-2xl border border-slate-700/50 space-y-4">
-        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
-          <div className="flex items-center gap-3">
-            <span className="text-2xl p-2 rounded-xl bg-emerald-500/10 border border-emerald-500/20 text-emerald-400">
-              🧪
-            </span>
-            <div>
-              <h3 className="text-base font-bold text-white tracking-tight">
-                Potencial impacto na demanda laboratorial
-              </h3>
-              <p className="text-xs text-slate-400 mt-0.5">
-                {dados?.impacto_demanda?.mensagem ||
-                  "Cruzamento automático da curva de casos com o saldo dos lotes válidos no laboratório."}
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3.5">
+          <div className="glass p-4 rounded-xl border border-slate-700/50 flex flex-col justify-between">
+            <p className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">Casos Recentes</p>
+            <div className="my-2">
+              <p className="text-2xl font-extrabold text-white tracking-tight">
+                {loading ? "…" : dados?.indicadores?.casos_recentes ?? "0"}
               </p>
             </div>
+            <p className="text-[11px] text-slate-400">última semana observada</p>
           </div>
 
-          <Link
-            href="/dashboard/reposicao"
-            className="flex items-center gap-2 px-4 py-2 rounded-xl bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 text-xs font-semibold transition-all whitespace-nowrap"
-          >
-            <span>Ver impacto projetado no estoque</span>
-            <span>→</span>
-          </Link>
+          <div className="glass p-4 rounded-xl border border-slate-700/50 flex flex-col justify-between">
+            <p className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">Casos Previstos</p>
+            <div className="my-2">
+              <p className="text-2xl font-extrabold text-white tracking-tight">
+                {loading ? "…" : (dados?.indicadores?.casos_previstos ?? 0).toLocaleString("pt-BR")}
+              </p>
+            </div>
+            <p className="text-[11px] text-slate-400">acumulado em {horizonteSemanas} semanas</p>
+          </div>
+
+          <div className="glass p-4 rounded-xl border border-slate-700/50 flex flex-col justify-between">
+            <p className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">Mudança esperada nos casos</p>
+            <div className="my-2 flex items-baseline gap-1">
+              {loading ? (
+                <p className="text-2xl font-extrabold text-white">…</p>
+              ) : (
+                <p
+                  className={`text-2xl font-extrabold ${(dados?.indicadores?.mudanca_esperada_pct ?? 0) > 0
+                      ? "text-amber-400"
+                      : (dados?.indicadores?.mudanca_esperada_pct ?? 0) < 0
+                        ? "text-emerald-400"
+                        : "text-slate-300"
+                    }`}
+                >
+                  {(dados?.indicadores?.mudanca_esperada_pct ?? 0) > 0 ? "+" : ""}
+                  {dados?.indicadores?.mudanca_esperada_pct ?? 0}%
+                </p>
+              )}
+            </div>
+            <p className="text-[11px] text-slate-400">vs. média das últimas 8 semanas</p>
+          </div>
+
+          {/* Pico Esperado — mostra data exata */}
+          <div className="glass p-4 rounded-xl border border-slate-700/50 flex flex-col justify-between">
+            <p className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">Pico Esperado</p>
+            <div className="my-2">
+              <p className="text-2xl font-extrabold text-white tracking-tight">
+                {loading
+                  ? "…"
+                  : dados?.indicadores?.pico_data
+                    ? formatarDataBR(dados.indicadores.pico_data)
+                    : "—"}
+              </p>
+            </div>
+            <p className="text-[11px] text-slate-400">
+              {loading
+                ? "…"
+                : `${(dados?.indicadores?.pico_casos ?? 0).toLocaleString("pt-BR")} casos estimados`}
+            </p>
+          </div>
+
+          <div className="glass p-4 rounded-xl border border-slate-700/50 flex flex-col justify-between">
+            <p className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">Tendência</p>
+            <div className="my-2">
+              <span
+                className={`inline-block px-3 py-1 rounded-full text-xs font-bold border ${dados?.indicadores?.tendencia?.includes("Crescente")
+                    ? "bg-amber-500/20 text-amber-300 border-amber-500/40"
+                    : dados?.indicadores?.tendencia?.includes("Decrescente")
+                      ? "bg-emerald-500/20 text-emerald-300 border-emerald-500/40"
+                      : "bg-slate-800 text-slate-300 border-slate-700"
+                  }`}
+              >
+                {loading ? "…" : dados?.indicadores?.tendencia ?? "Estável"}
+              </span>
+            </div>
+            <p className="text-[11px] text-slate-400">durante as próximas {horizonteSemanas} semanas</p>
+          </div>
         </div>
 
-        {dados?.impacto_demanda?.materiais && dados.impacto_demanda.materiais.length > 0 ? (
-          <div className="overflow-x-auto">
-            <table className="w-full text-left text-xs border-collapse table-fixed">
-              <colgroup>
-                <col className="w-[22%]" />
-                <col className="w-[10%]" />
-                <col className="w-[12%]" />
-                <col className="w-[16%]" />
-                <col className="w-[13%]" />
-                <col className="w-[13%]" />
-                <col className="w-[14%]" />
-              </colgroup>
-              <thead>
-                <tr className="border-b border-slate-800 text-slate-400 font-semibold">
-                  <th className="py-2.5 px-3">Material Laboratorial</th>
-                  <th className="py-2.5 px-3">Doença</th>
-                  <th className="py-2.5 px-3">Multiplicador</th>
-                  <th className="py-2.5 px-3">Demanda Prevista (+20%)</th>
-                  <th className="py-2.5 px-3">Estoque Atual</th>
-                  <th className="py-2.5 px-3">Saldo Projetado</th>
-                  <th className="py-2.5 px-3 text-right">Diagnóstico</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-800/60">
-                {dados.impacto_demanda.materiais.map((mat: any, idx: number) => (
-                  <tr key={idx} className="hover:bg-slate-800/30 transition-colors">
-                    <td className="py-2.5 px-3 font-medium text-white">
-                      <span className="block truncate" title={mat.nome}>
-                        {mat.nome}
-                      </span>
-                    </td>
-                    <td className="py-2.5 px-3">
-                      <span
-                        className={`inline-block px-2 py-0.5 rounded text-[11px] font-bold ${
-                          mat.doenca === "Dengue"
-                            ? "bg-cyan-500/15 text-cyan-300 border border-cyan-500/30"
-                            : "bg-purple-500/15 text-purple-300 border border-purple-500/30"
+        {/* =====================================================================
+          SEÇÃO 3 — GRÁFICO RECHARTS (COM ZOOM, PAN E DRILL-DOWN SEMANAL)
+      ===================================================================== */}
+        <div className="glass p-6 rounded-2xl border border-slate-700/50 space-y-2.5">
+          <div className="flex flex-col lg:flex-row justify-between lg:items-center gap-3">
+            <div className="flex items-center gap-2.5 flex-wrap">
+              <span className="text-lg">📈</span>
+              <div>
+                <div className="flex items-center gap-2 flex-wrap">
+                  <h2 className="text-lg font-bold text-white tracking-tight">
+                    Comportamento epidemiológico e previsão
+                  </h2>
+                  {!loading && totalPontosSerie > 0 && (
+                    <span
+                      className={`px-2.5 py-0.5 rounded-full text-[10px] font-extrabold border transition-colors ${modoSemanal
+                          ? "bg-cyan-500/20 text-cyan-300 border-cyan-500/40"
+                          : "bg-slate-800 text-slate-300 border-slate-700"
                         }`}
-                      >
-                        {mat.doenca}
-                      </span>
-                    </td>
-                    <td className="py-2.5 px-3 text-slate-300">
-                      <span className="block truncate" title={`${mat.quantidade_por_exame} ${mat.unidade}/exame`}>
-                        {mat.quantidade_por_exame} {mat.unidade}/exame
-                      </span>
-                    </td>
-                    <td className="py-2.5 px-3 font-semibold text-white">
-                      {mat.demanda_projetada.toLocaleString("pt-BR")} {mat.unidade}
-                    </td>
-                    <td className="py-2.5 px-3 text-slate-300">
-                      {mat.saldo_atual.toLocaleString("pt-BR")} {mat.unidade}
-                    </td>
-                    <td
-                      className={`py-2.5 px-3 font-bold ${
-                        mat.saldo_projetado < 0 ? "text-red-400" : "text-emerald-400"
-                      }`}
                     >
-                      {mat.saldo_projetado > 0 ? "+" : ""}
-                      {mat.saldo_projetado.toLocaleString("pt-BR")} {mat.unidade}
-                    </td>
-                    <td className="py-2.5 px-3 text-right">
-                      <span
-                        className={`inline-block px-2.5 py-1 rounded-full text-[10px] font-extrabold border whitespace-nowrap ${
-                          mat.status_risco === "CRITICO"
-                            ? "bg-red-500/20 text-red-300 border-red-500/40 animate-pulse"
-                            : mat.status_risco === "ATENCAO"
-                            ? "bg-amber-500/20 text-amber-300 border-amber-500/40"
-                            : "bg-emerald-500/20 text-emerald-300 border-emerald-500/40"
-                        }`}
-                      >
-                        {mat.status_risco === "CRITICO"
-                          ? "RUPTURA IMINENTE"
-                          : mat.status_risco === "ATENCAO"
-                          ? "ATENÇÃO"
-                          : "ESTOQUE SEGURO"}
-                      </span>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+                      {modoSemanal
+                        ? `Escala Semanal (${semanasVisiveis} sem)`
+                        : `Escala Mensal (${semanasVisiveis} sem)`}
+                    </span>
+                  )}
+                </div>
+                <p className="text-xs text-slate-400 mt-0.5">
+                  {localidades.join(", ")} · {textoPeríodo} · próximas {horizonteSemanas} semanas
+                </p>
+              </div>
+            </div>
+
+            <div className="flex flex-wrap items-center gap-3 text-xs">
+              {/* Controles rápidos de Zoom */}
+              {!loading && totalPontosSerie > 4 && (
+                <div className="flex items-center gap-1.5 bg-slate-900/90 border border-slate-700/70 rounded-xl p-1">
+                  <button
+                    onClick={() => aplicarZoom(0.75, 0.5)}
+                    disabled={semanasVisiveis <= 4}
+                    title="Aproximar zoom (detalhar semanas)"
+                    className="px-2.5 py-1 rounded-lg bg-slate-800 hover:bg-slate-700 disabled:opacity-40 text-white font-bold text-xs transition-colors"
+                  >
+                    + Zoom
+                  </button>
+                  <button
+                    onClick={() => aplicarZoom(1.35, 0.5)}
+                    disabled={!estaComZoom}
+                    title="Afastar zoom"
+                    className="px-2.5 py-1 rounded-lg bg-slate-800 hover:bg-slate-700 disabled:opacity-40 text-white font-bold text-xs transition-colors"
+                  >
+                    − Zoom
+                  </button>
+                  {estaComZoom && (
+                    <button
+                      onClick={() => setZoomRange(null)}
+                      title="Voltar ao período completo"
+                      className="px-2.5 py-1 rounded-lg bg-emerald-500/20 hover:bg-emerald-500/30 text-emerald-300 border border-emerald-500/30 font-semibold text-xs transition-colors"
+                    >
+                      Resetar Zoom
+                    </button>
+                  )}
+                </div>
+              )}
+
+              <div className="flex items-center gap-4">
+                <div className="flex items-center gap-1.5 text-slate-300">
+                  <span className="w-3 h-0.5 bg-current inline-block rounded" />
+                  <span>Observado</span>
+                </div>
+                <div className="flex items-center gap-1.5 text-slate-300">
+                  <span className="w-3 h-0.5 border-b-2 border-dashed border-current inline-block" />
+                  <span>Previsto</span>
+                </div>
+              </div>
+            </div>
           </div>
-        ) : (
-          <div className="p-4 rounded-xl bg-slate-900/40 border border-slate-800 text-center text-xs text-slate-400">
-            Nenhum insumo crítico demandado para a combinação epidemiológica selecionada.
+
+          <div
+            ref={chartContainerRef}
+            onMouseDown={handleMouseDownChart}
+            onMouseMove={handleMouseMoveChart}
+            onMouseUp={handleMouseUpChart}
+            onMouseLeave={handleMouseUpChart}
+            className={`w-full bg-slate-950/40 rounded-xl border border-slate-800/80 p-3 pt-4 select-none ${estaComZoom
+                ? isDragging
+                  ? "cursor-grabbing"
+                  : "cursor-grab"
+                : "cursor-crosshair"
+              }`}
+          >
+            {loading ? (
+              <div className="h-80 flex flex-col items-center justify-center gap-3 text-slate-400">
+                <div className="w-8 h-8 border-2 border-emerald-400 border-t-transparent rounded-full animate-spin"></div>
+                <p className="text-xs font-medium text-slate-300">
+                  Calculando projeção Prophet com série temporal...
+                </p>
+                <div className="flex flex-col items-center gap-1.5">
+                  <span className="px-3 py-1 rounded-full bg-slate-900/90 border border-emerald-500/30 text-[11px] font-semibold text-emerald-400 tabular-nums">
+                    ⏱️ Tempo estimado: ~{Math.max(0.1, Number((tempoEstimadoSegundos - segundosDecorridos).toFixed(1)))}s restantes ({segundosDecorridos.toFixed(1)}s decorridos)
+                  </span>
+                  <div className="w-48 h-1.5 bg-slate-800 rounded-full overflow-hidden">
+                    <div
+                      className="h-full bg-emerald-400 transition-all duration-100"
+                      style={{
+                        width: `${Math.min(95, Math.round((segundosDecorridos / tempoEstimadoSegundos) * 100))}%`,
+                      }}
+                    />
+                  </div>
+                </div>
+              </div>
+            ) : visibleChartData.length > 0 ? (
+              <>
+                <ResponsiveContainer width="100%" height={360}>
+                  <ComposedChart
+                    data={visibleChartData}
+                    margin={{ top: 10, right: 20, left: 10, bottom: 15 }}
+                  >
+                    <defs>
+                      <linearGradient id="gradientDengue" x1="0" y1="0" x2="0" y2="1">
+                        <stop offset="0%" stopColor={CORES.dengue} stopOpacity={0.15} />
+                        <stop offset="100%" stopColor={CORES.dengue} stopOpacity={0.01} />
+                      </linearGradient>
+                      <linearGradient id="gradientInfluenza" x1="0" y1="0" x2="0" y2="1">
+                        <stop offset="0%" stopColor={CORES.influenza} stopOpacity={0.15} />
+                        <stop offset="100%" stopColor={CORES.influenza} stopOpacity={0.01} />
+                      </linearGradient>
+                    </defs>
+
+                    <CartesianGrid
+                      strokeDasharray="4 4"
+                      stroke={CORES.grid}
+                      vertical={modoSemanal}
+                    />
+
+                    <XAxis
+                      dataKey="data_inicio"
+                      tickFormatter={formatarTickEixoX}
+                      tick={{ fill: modoSemanal ? "#94a3b8" : "#64748b", fontSize: 10 }}
+                      axisLine={{ stroke: CORES.grid }}
+                      tickLine={modoSemanal}
+                      ticks={ticksEixoX}
+                      interval={0}
+                      angle={-35}
+                      textAnchor="end"
+                      height={55}
+                    />
+
+                    <YAxis
+                      tickFormatter={formatarEixoY}
+                      tick={{ fill: "#64748b", fontSize: 10 }}
+                      axisLine={false}
+                      tickLine={false}
+                      width={45}
+                    />
+
+                    <Tooltip
+                      content={<TooltipCustomizado />}
+                      cursor={{
+                        stroke: "rgba(148, 163, 184, 0.35)",
+                        strokeWidth: 1,
+                        strokeDasharray: "4 4",
+                      }}
+                    />
+
+                    {previsaoStartKey && (
+                      <ReferenceArea
+                        x1={previsaoStartKey}
+                        fill={CORES.previsaoFill}
+                        fillOpacity={1}
+                      />
+                    )}
+
+                    {previsaoStartKey && mostrarLinhaDivisoriaPrevisao && (
+                      <ReferenceLine
+                        x={previsaoStartKey}
+                        stroke="#10b981"
+                        strokeWidth={1.5}
+                        strokeDasharray="4 4"
+                        label={{
+                          value: "Início da previsão",
+                          position: "insideTopRight",
+                          fill: "#34d399",
+                          fontSize: 10,
+                          fontWeight: "bold",
+                          offset: 8,
+                        }}
+                      />
+                    )}
+
+                    {/* === DENGUE === */}
+                    {doenca !== "Influenza" && (
+                      <>
+                        <Area
+                          type="monotone"
+                          dataKey="dengue_observado"
+                          stroke="none"
+                          fill="url(#gradientDengue)"
+                          fillOpacity={1}
+                          connectNulls={false}
+                          dot={false}
+                          activeDot={false}
+                          isAnimationActive={false}
+                        />
+                        <Line
+                          type="monotone"
+                          dataKey="dengue_observado"
+                          stroke={CORES.dengue}
+                          strokeWidth={2.5}
+                          dot={
+                            modoSemanal
+                              ? { r: 3, fill: CORES.dengue, stroke: "#0f172a", strokeWidth: 1.5 }
+                              : false
+                          }
+                          activeDot={{
+                            r: 5,
+                            fill: CORES.dengue,
+                            stroke: "#0f172a",
+                            strokeWidth: 2,
+                          }}
+                          connectNulls={false}
+                          isAnimationActive={false}
+                        />
+                        <Line
+                          type="monotone"
+                          dataKey="dengue_previsto"
+                          stroke={CORES.dengue}
+                          strokeWidth={2.5}
+                          strokeDasharray="6 4"
+                          dot={
+                            modoSemanal
+                              ? { r: 3, fill: "#0f172a", stroke: CORES.dengue, strokeWidth: 2 }
+                              : false
+                          }
+                          activeDot={{
+                            r: 5,
+                            fill: CORES.dengue,
+                            stroke: "#0f172a",
+                            strokeWidth: 2,
+                          }}
+                          connectNulls={false}
+                          isAnimationActive={false}
+                        />
+                      </>
+                    )}
+
+                    {/* === INFLUENZA === */}
+                    {doenca !== "Dengue" && (
+                      <>
+                        <Area
+                          type="monotone"
+                          dataKey="influenza_observado"
+                          stroke="none"
+                          fill="url(#gradientInfluenza)"
+                          fillOpacity={1}
+                          connectNulls={false}
+                          dot={false}
+                          activeDot={false}
+                          isAnimationActive={false}
+                        />
+                        <Line
+                          type="monotone"
+                          dataKey="influenza_observado"
+                          stroke={CORES.influenza}
+                          strokeWidth={2.5}
+                          dot={
+                            modoSemanal
+                              ? { r: 3, fill: CORES.influenza, stroke: "#0f172a", strokeWidth: 1.5 }
+                              : false
+                          }
+                          activeDot={{
+                            r: 5,
+                            fill: CORES.influenza,
+                            stroke: "#0f172a",
+                            strokeWidth: 2,
+                          }}
+                          connectNulls={false}
+                          isAnimationActive={false}
+                        />
+                        <Line
+                          type="monotone"
+                          dataKey="influenza_previsto"
+                          stroke={CORES.influenza}
+                          strokeWidth={2.5}
+                          strokeDasharray="6 4"
+                          dot={
+                            modoSemanal
+                              ? { r: 3, fill: "#0f172a", stroke: CORES.influenza, strokeWidth: 2 }
+                              : false
+                          }
+                          activeDot={{
+                            r: 5,
+                            fill: CORES.influenza,
+                            stroke: "#0f172a",
+                            strokeWidth: 2,
+                          }}
+                          connectNulls={false}
+                          isAnimationActive={false}
+                        />
+                      </>
+                    )}
+                  </ComposedChart>
+                </ResponsiveContainer>
+
+                <div className="flex flex-col sm:flex-row items-center justify-between gap-2 pt-2 border-t border-slate-800/60">
+                  <LegendaCustomizada doenca={doenca} />
+                  <span className="text-[11px] text-slate-400">
+                    🖱️ Role o mouse sobre o gráfico para dar <strong>Zoom (detalhar semanas)</strong> ·{" "}
+                    {estaComZoom ? (
+                      <strong className="text-emerald-400">Clique e arraste para mover o período</strong>
+                    ) : (
+                      <span>Clique e arraste quando em zoom</span>
+                    )}
+                  </span>
+                </div>
+              </>
+            ) : (
+              <div className="h-80 flex flex-col items-center justify-center text-slate-400 text-xs">
+                <span>Nenhum dado epidemiológico para a combinação selecionada.</span>
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* =====================================================================
+          SEÇÃO 4 — PANORAMA EPIDEMIOLÓGICO E DISTRIBUIÇÃO
+      ===================================================================== */}
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+          <div className="glass p-6 rounded-2xl border border-slate-700/50 lg:col-span-2 flex flex-col justify-between">
+            <div>
+              <div className="flex items-center gap-2 mb-3">
+                <span className="text-lg">📋</span>
+                <h3 className="text-base font-bold text-white tracking-tight">Panorama epidemiológico</h3>
+              </div>
+              <p className="text-sm text-slate-300 leading-relaxed">
+                {loading
+                  ? "Calculando panorama preditivo..."
+                  : dados?.panorama_texto ||
+                  "A atividade viral está sendo monitorada com base nos dados de vigilância epidemiológica regional."}
+              </p>
+            </div>
+            <div className="mt-4 pt-3 border-t border-slate-800/80 flex items-center justify-between text-xs text-slate-400">
+              <span>Região: {localidades.join(", ")}</span>
+              <span>Horizonte: {horizonteSemanas} semanas</span>
+            </div>
+          </div>
+
+          {/* Distribuição — Usa cálculo local para garantir valores corretos */}
+          <div className="glass p-6 rounded-2xl border border-slate-700/50 flex flex-col justify-between">
+            <div>
+              <h3 className="text-base font-bold text-white tracking-tight mb-4">Distribuição da previsão</h3>
+
+              <div className="space-y-4">
+                <div className="w-full h-3.5 bg-slate-800 rounded-full overflow-hidden flex">
+                  <div
+                    style={{ width: `${distribuicaoLocal.total_previsto > 0 ? distribuicaoLocal.dengue.percentual : 50}%` }}
+                    className="bg-cyan-500 transition-all duration-500"
+                  />
+                  <div
+                    style={{ width: `${distribuicaoLocal.total_previsto > 0 ? distribuicaoLocal.influenza.percentual : 50}%` }}
+                    className="bg-purple-500 transition-all duration-500"
+                  />
+                </div>
+
+                <div className="space-y-2 text-xs">
+                  <div className="flex items-center justify-between p-2 rounded-lg bg-slate-900/60 border border-slate-800">
+                    <span className="flex items-center gap-2 text-cyan-400 font-semibold">
+                      <span className="w-2.5 h-2.5 rounded-full bg-cyan-400"></span>
+                      Dengue
+                    </span>
+                    <span className="text-white font-bold">
+                      {distribuicaoLocal.dengue.casos.toLocaleString("pt-BR")} ({distribuicaoLocal.dengue.percentual}%)
+                    </span>
+                  </div>
+                  <div className="flex items-center justify-between p-2 rounded-lg bg-slate-900/60 border border-slate-800">
+                    <span className="flex items-center gap-2 text-purple-400 font-semibold">
+                      <span className="w-2.5 h-2.5 rounded-full bg-purple-400"></span>
+                      Influenza
+                    </span>
+                    <span className="text-white font-bold">
+                      {distribuicaoLocal.influenza.casos.toLocaleString("pt-BR")} ({distribuicaoLocal.influenza.percentual}%)
+                    </span>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div className="mt-4 text-center">
+              <span className="text-xs text-slate-400">
+                Total Projetado: <strong className="text-white">{distribuicaoLocal.total_previsto.toLocaleString("pt-BR")} casos</strong>
+              </span>
+            </div>
+          </div>
+        </div>
+
+        {/* =====================================================================
+          SEÇÃO 5 — POTENCIAL IMPACTO NA DEMANDA LABORATORIAL
+      ===================================================================== */}
+        <div className="glass p-6 rounded-2xl border border-slate-700/50 space-y-4">
+          <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+            <div className="flex items-center gap-3">
+              <span className="text-2xl p-2 rounded-xl bg-emerald-500/10 border border-emerald-500/20 text-emerald-400">
+                🧪
+              </span>
+              <div>
+                <h3 className="text-base font-bold text-white tracking-tight">
+                  Potencial impacto na demanda laboratorial
+                </h3>
+                <p className="text-xs text-slate-400 mt-0.5">
+                  {dados?.impacto_demanda?.mensagem ||
+                    "Cruzamento automático da curva de casos com o saldo dos lotes válidos no laboratório."}
+                </p>
+              </div>
+            </div>
+
+            <Link
+              href="/dashboard/reposicao"
+              className="flex items-center gap-2 px-4 py-2 rounded-xl bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 text-xs font-semibold transition-all whitespace-nowrap"
+            >
+              <span>Ver impacto projetado no estoque</span>
+              <span>→</span>
+            </Link>
+          </div>
+
+          {dados?.impacto_demanda?.materiais && dados.impacto_demanda.materiais.length > 0 ? (
+            <div className="overflow-x-auto">
+              <table className="w-full text-left text-xs border-collapse table-fixed">
+                <colgroup>
+                  <col className="w-[22%]" />
+                  <col className="w-[10%]" />
+                  <col className="w-[12%]" />
+                  <col className="w-[16%]" />
+                  <col className="w-[13%]" />
+                  <col className="w-[13%]" />
+                  <col className="w-[14%]" />
+                </colgroup>
+                <thead>
+                  <tr className="border-b border-slate-800 text-slate-400 font-semibold">
+                    <th className="py-2.5 px-3">Material Laboratorial</th>
+                    <th className="py-2.5 px-3">Doença</th>
+                    <th className="py-2.5 px-3">Multiplicador</th>
+                    <th className="py-2.5 px-3">Demanda Prevista (+20%)</th>
+                    <th className="py-2.5 px-3">Estoque Atual</th>
+                    <th className="py-2.5 px-3">Saldo Projetado</th>
+                    <th className="py-2.5 px-3 text-right">Diagnóstico</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-800/60">
+                  {dados.impacto_demanda.materiais.map((mat: any, idx: number) => (
+                    <tr key={idx} className="hover:bg-slate-800/30 transition-colors">
+                      <td className="py-2.5 px-3 font-medium text-white">
+                        <span className="block truncate" title={mat.nome}>
+                          {mat.nome}
+                        </span>
+                      </td>
+                      <td className="py-2.5 px-3">
+                        <span
+                          className={`inline-block px-2 py-0.5 rounded text-[11px] font-bold ${mat.doenca === "Dengue"
+                              ? "bg-cyan-500/15 text-cyan-300 border border-cyan-500/30"
+                              : "bg-purple-500/15 text-purple-300 border border-purple-500/30"
+                            }`}
+                        >
+                          {mat.doenca}
+                        </span>
+                      </td>
+                      <td className="py-2.5 px-3 text-slate-300">
+                        <span className="block truncate" title={`${mat.quantidade_por_exame} ${mat.unidade}/exame`}>
+                          {mat.quantidade_por_exame} {mat.unidade}/exame
+                        </span>
+                      </td>
+                      <td className="py-2.5 px-3 font-semibold text-white">
+                        {mat.demanda_projetada.toLocaleString("pt-BR")} {mat.unidade}
+                      </td>
+                      <td className="py-2.5 px-3 text-slate-300">
+                        {mat.saldo_atual.toLocaleString("pt-BR")} {mat.unidade}
+                      </td>
+                      <td
+                        className={`py-2.5 px-3 font-bold ${mat.saldo_projetado < 0 ? "text-red-400" : "text-emerald-400"
+                          }`}
+                      >
+                        {mat.saldo_projetado > 0 ? "+" : ""}
+                        {mat.saldo_projetado.toLocaleString("pt-BR")} {mat.unidade}
+                      </td>
+                      <td className="py-2.5 px-3 text-right">
+                        <span
+                          className={`inline-block px-2.5 py-1 rounded-full text-[10px] font-extrabold border whitespace-nowrap ${mat.status_risco === "CRITICO"
+                              ? "bg-red-500/20 text-red-300 border-red-500/40 animate-pulse"
+                              : mat.status_risco === "ATENCAO"
+                                ? "bg-amber-500/20 text-amber-300 border-amber-500/40"
+                                : "bg-emerald-500/20 text-emerald-300 border-emerald-500/40"
+                            }`}
+                        >
+                          {mat.status_risco === "CRITICO"
+                            ? "RUPTURA IMINENTE"
+                            : mat.status_risco === "ATENCAO"
+                              ? "ATENÇÃO"
+                              : "ESTOQUE SEGURO"}
+                        </span>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          ) : (
+            <div className="p-4 rounded-xl bg-slate-900/40 border border-slate-800 text-center text-xs text-slate-400">
+              Nenhum insumo crítico demandado para a combinação epidemiológica selecionada.
+            </div>
+          )}
+        </div>
+
+        {/* =====================================================================
+          SEÇÃO 6 — RODAPÉ
+      ===================================================================== */}
+        <div className="flex flex-col sm:flex-row justify-between items-center gap-2 text-xs text-slate-400 px-2">
+          <span>Fonte: bases epidemiológicas públicas · dados oficiais SINAN / DATASUS</span>
+          <span>
+            Cobertura: {textoPeríodo} · {localidades.join(", ")}
+          </span>
+        </div>
+
+        {/* =====================================================================
+          MODAL — SALVAR PREVISÃO (SNAPSHOT COMPLETO)
+      ===================================================================== */}
+        {modalSalvarAberto && (
+          <div className="fixed inset-0 z-[120] bg-black/70 backdrop-blur-sm flex items-center justify-center p-4">
+            <div className="bg-slate-900 border border-slate-700 rounded-2xl max-w-lg w-full p-6 space-y-5 shadow-2xl animate-scale-in">
+              <div className="flex justify-between items-center border-b border-slate-800 pb-3">
+                <div>
+                  <h3 className="text-base font-bold text-white">Salvar Previsão Epidemiológica</h3>
+                  <p className="text-xs text-slate-400 mt-0.5">
+                    Salva todos os filtros ativos e a série completa do gráfico para uso na análise algorítmica de alertas.
+                  </p>
+                </div>
+                <button
+                  onClick={() => setModalSalvarAberto(false)}
+                  className="text-slate-400 hover:text-white text-lg font-bold"
+                >
+                  ✕
+                </button>
+              </div>
+
+              <div className="space-y-4">
+                <div>
+                  <label className="block text-xs font-semibold text-slate-300 mb-1.5">
+                    Identificação da Previsão
+                  </label>
+                  <input
+                    type="text"
+                    value={tituloPrevisao}
+                    onChange={(e) => setTituloPrevisao(e.target.value)}
+                    placeholder="Ex: Dengue · Santos · Próximas 8 semanas"
+                    className="w-full px-3.5 py-2.5 bg-slate-950 border border-slate-700 rounded-xl text-xs text-white focus:outline-none focus:border-emerald-500"
+                  />
+                </div>
+
+                <div className="p-3.5 bg-slate-950/80 rounded-xl border border-slate-800 space-y-2 text-xs">
+                  <p className="font-bold text-emerald-400 uppercase tracking-wider text-[10px]">
+                    Resumo do Snapshot a ser salvo
+                  </p>
+                  <div className="grid grid-cols-2 gap-2 text-slate-300">
+                    <div>
+                      <span className="text-slate-500">Doença:</span>{" "}
+                      <strong className="text-white">{doenca}</strong>
+                    </div>
+                    <div>
+                      <span className="text-slate-500">Horizonte:</span>{" "}
+                      <strong className="text-white">{horizonteSemanas} semanas</strong>
+                    </div>
+                    <div className="col-span-2">
+                      <span className="text-slate-500">Localidades:</span>{" "}
+                      <strong className="text-white">{localidades.join(", ")}</strong>
+                    </div>
+                    <div>
+                      <span className="text-slate-500">Período:</span>{" "}
+                      <strong className="text-white">{textoPeríodo}</strong>
+                    </div>
+                    <div>
+                      <span className="text-slate-500">Modo / Perfil:</span>{" "}
+                      <strong className="text-white">
+                        {modo} · {faixaEtaria} · {sexo}
+                      </strong>
+                    </div>
+                    <div>
+                      <span className="text-slate-500">Casos Previstos:</span>{" "}
+                      <strong className="text-emerald-400">
+                        {(dados?.indicadores?.casos_previstos ?? distribuicaoLocal.total_previsto).toLocaleString("pt-BR")}
+                      </strong>
+                    </div>
+                    <div>
+                      <span className="text-slate-500">Confiança Prophet:</span>{" "}
+                      <strong className="text-cyan-400">80% (IC 80%)</strong>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <div className="flex justify-end gap-3 border-t border-slate-800 pt-4">
+                <button
+                  onClick={() => setModalSalvarAberto(false)}
+                  className="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-semibold rounded-xl transition-colors"
+                >
+                  Cancelar
+                </button>
+                <button
+                  onClick={handleSalvarPrevisao}
+                  disabled={salvandoPrevisao}
+                  className="px-4 py-2 bg-emerald-500 hover:bg-emerald-400 disabled:opacity-50 text-white text-xs font-bold rounded-xl transition-colors"
+                >
+                  {salvandoPrevisao ? "Salvando..." : "Salvar Previsão"}
+                </button>
+              </div>
+            </div>
           </div>
         )}
       </div>
-
-      {/* =====================================================================
-          SEÇÃO 6 — RODAPÉ
-      ===================================================================== */}
-      <div className="flex flex-col sm:flex-row justify-between items-center gap-2 text-xs text-slate-400 px-2">
-        <span>Fonte: bases epidemiológicas públicas · dados oficiais SINAN / DATASUS</span>
-        <span>
-          Cobertura: {textoPeríodo} · {localidades.join(", ")}
-        </span>
-      </div>
-
-      {/* =====================================================================
-          MODAL — SALVAR PREVISÃO (SNAPSHOT COMPLETO)
-      ===================================================================== */}
-      {modalSalvarAberto && (
-        <div className="fixed inset-0 z-[120] bg-black/70 backdrop-blur-sm flex items-center justify-center p-4">
-          <div className="bg-slate-900 border border-slate-700 rounded-2xl max-w-lg w-full p-6 space-y-5 shadow-2xl animate-scale-in">
-            <div className="flex justify-between items-center border-b border-slate-800 pb-3">
-              <div>
-                <h3 className="text-base font-bold text-white">Salvar Previsão Epidemiológica</h3>
-                <p className="text-xs text-slate-400 mt-0.5">
-                  Salva todos os filtros ativos e a série completa do gráfico para uso na análise algorítmica de alertas.
-                </p>
-              </div>
-              <button
-                onClick={() => setModalSalvarAberto(false)}
-                className="text-slate-400 hover:text-white text-lg font-bold"
-              >
-                ✕
-              </button>
-            </div>
-
-            <div className="space-y-4">
-              <div>
-                <label className="block text-xs font-semibold text-slate-300 mb-1.5">
-                  Identificação da Previsão
-                </label>
-                <input
-                  type="text"
-                  value={tituloPrevisao}
-                  onChange={(e) => setTituloPrevisao(e.target.value)}
-                  placeholder="Ex: Dengue · Santos · Próximas 8 semanas"
-                  className="w-full px-3.5 py-2.5 bg-slate-950 border border-slate-700 rounded-xl text-xs text-white focus:outline-none focus:border-emerald-500"
-                />
-              </div>
-
-              <div className="p-3.5 bg-slate-950/80 rounded-xl border border-slate-800 space-y-2 text-xs">
-                <p className="font-bold text-emerald-400 uppercase tracking-wider text-[10px]">
-                  Resumo do Snapshot a ser salvo
-                </p>
-                <div className="grid grid-cols-2 gap-2 text-slate-300">
-                  <div>
-                    <span className="text-slate-500">Doença:</span>{" "}
-                    <strong className="text-white">{doenca}</strong>
-                  </div>
-                  <div>
-                    <span className="text-slate-500">Horizonte:</span>{" "}
-                    <strong className="text-white">{horizonteSemanas} semanas</strong>
-                  </div>
-                  <div className="col-span-2">
-                    <span className="text-slate-500">Localidades:</span>{" "}
-                    <strong className="text-white">{localidades.join(", ")}</strong>
-                  </div>
-                  <div>
-                    <span className="text-slate-500">Período:</span>{" "}
-                    <strong className="text-white">{textoPeríodo}</strong>
-                  </div>
-                  <div>
-                    <span className="text-slate-500">Modo / Perfil:</span>{" "}
-                    <strong className="text-white">
-                      {modo} · {faixaEtaria} · {sexo}
-                    </strong>
-                  </div>
-                  <div>
-                    <span className="text-slate-500">Casos Previstos:</span>{" "}
-                    <strong className="text-emerald-400">
-                      {(dados?.indicadores?.casos_previstos ?? distribuicaoLocal.total_previsto).toLocaleString("pt-BR")}
-                    </strong>
-                  </div>
-                  <div>
-                    <span className="text-slate-500">Confiança Prophet:</span>{" "}
-                    <strong className="text-cyan-400">80% (IC 80%)</strong>
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            <div className="flex justify-end gap-3 border-t border-slate-800 pt-4">
-              <button
-                onClick={() => setModalSalvarAberto(false)}
-                className="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-semibold rounded-xl transition-colors"
-              >
-                Cancelar
-              </button>
-              <button
-                onClick={handleSalvarPrevisao}
-                disabled={salvandoPrevisao}
-                className="px-4 py-2 bg-emerald-500 hover:bg-emerald-400 disabled:opacity-50 text-white text-xs font-bold rounded-xl transition-colors"
-              >
-                {salvandoPrevisao ? "Salvando..." : "Salvar Previsão"}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-    </div>
-  );
+      );
 }

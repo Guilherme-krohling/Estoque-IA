@@ -174,7 +174,7 @@ export default function DataTable<T extends { id: number }>({
           )}
         </div>
       ) : (
-        <div className="overflow-x-auto rounded-xl border border-slate-700/50">
+        <div className="w-full max-w-full overflow-x-auto rounded-xl border border-slate-700/50">
           <table className="w-full text-sm">
             <thead>
               <tr className="border-b border-slate-700/50 bg-slate-800/50">
@@ -184,7 +184,7 @@ export default function DataTable<T extends { id: number }>({
                     <th
                       key={col.key}
                       onClick={() => handleSort(col.key)}
-                      className="text-left px-4 py-3 font-medium text-slate-300 cursor-pointer select-none hover:text-white transition-colors"
+                      className="text-left px-4 py-3 font-medium text-slate-300 cursor-pointer select-none hover:text-white transition-colors whitespace-nowrap"
                     >
                       <div className="flex items-center gap-1">
                         <span>{col.label}</span>
@@ -210,14 +210,14 @@ export default function DataTable<T extends { id: number }>({
                     }`}
                 >
                   {columns.map((col) => (
-                    <td key={col.key} className="px-4 py-3 text-slate-200 break-words whitespace-normal max-w-[250px]">
+                    <td key={col.key} className="px-4 py-3 text-slate-200 align-middle">
                       {col.render
                         ? col.render(item)
                         : String((item as any)[col.key] ?? "-")}
                     </td>
                   ))}
                   {(onEdit || onDelete) && (
-                    <td className="px-4 py-3 text-right">
+                    <td className="px-4 py-3 text-right whitespace-nowrap align-middle">
                       <div className="flex items-center justify-end gap-2">
                         {onEdit && (
                           <button

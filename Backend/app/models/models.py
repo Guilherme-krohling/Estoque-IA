@@ -375,3 +375,45 @@ class ConsumoMaterialPaciente(Base):
     lote = relationship("Lote")
     movimentacao = relationship("MovimentacaoEstoque")
 
+
+# =====================================================================
+# 14. CADASTRO DE CONVÊNIOS (Configurações Globais)
+# =====================================================================
+class Convenio(Base):
+    __tablename__ = "convenios"
+
+    id = Column(Integer, primary_key=True, index=True)
+    nome = Column(String(120), nullable=False, index=True)
+    plano = Column(String(120), nullable=False)
+    carencia = Column(String(100), nullable=False)
+    ativo = Column(Boolean, default=True)
+    criado_em = Column(DateTime, default=func.now())
+
+    # Relacionamentos
+    pacientes = relationship("Paciente", back_populates="convenio_rel")
+
+
+# =====================================================================
+# 15. CADASTRO DE PACIENTES (Configurações Globais)
+# =====================================================================
+class Paciente(Base):
+    __tablename__ = "pacientes"
+
+    id = Column(Integer, primary_key=True, index=True)
+    nome_completo = Column(String(150), nullable=False, index=True)
+    convenio_id = Column(Integer, ForeignKey("convenios.id"), nullable=True, index=True)
+    convenio = Column(String(150), nullable=False)
+    numero_carteirinha = Column(String(60), nullable=False)
+    data_nascimento = Column(Date, nullable=False)
+    codigo_atendimento = Column(String(60), nullable=False, index=True)
+    endereco = Column(String(255), nullable=True)  # Opcional
+    cpf = Column(String(20), nullable=False, index=True)
+    rg = Column(String(25), nullable=False)
+    telefone = Column(String(30), nullable=False)
+    ativo = Column(Boolean, default=True)
+    criado_em = Column(DateTime, default=func.now())
+
+    # Relacionamentos
+    convenio_rel = relationship("Convenio", back_populates="pacientes")
+
+

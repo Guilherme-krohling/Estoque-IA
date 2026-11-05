@@ -22,6 +22,7 @@ from app.models.models import (
     Material,
     Lote,
     MovimentacaoEstoque,
+    Paciente,
     Usuario,
 )
 
@@ -38,9 +39,10 @@ class ItemConsumoPacienteInput(BaseModel):
 
 
 class RegistrarAtendimentoRastreavelRequest(BaseModel):
-    paciente_nome: str
+    paciente_id: Optional[int] = None
+    paciente_nome: Optional[str] = None
     paciente_documento: Optional[str] = None
-    convenio: str
+    convenio: Optional[str] = None
     codigo_atendimento: Optional[str] = None
     exames: List[str]
     observacoes: Optional[str] = None
@@ -175,11 +177,22 @@ def registrar_uso_paciente(
     Registra um atendimento de paciente (com convênio e lista de exames realizados)
     e realiza automaticamente a baixa (USO) dos materiais/lotes consumidos.
     """
-    pac_nome = (body.paciente_nome or "").strip()
-    if not pac_nome:
-        raise HTTPException(status_code=400, detail="Informe o nome do paciente.")
+    pac_cadastrado = None
+    if body.paciente_id:
+        pac_cadastrado = db.query(Paciente).filter(Paciente.id == body.paciente_id).first()
+        if not pac_cadastrado:
+            raise HTTPException(status_code=404, detail="Paciente selecionado não foi encontrado no cadastro.")
 
-    conv_nome = (body.convenio or "").strip() or "Particular"
+    pac_nome = (body.paciente_nome or (pac_cadastrado.nome_completo if pac_cadastrado else "")).strip()
+    if not pac_nome:
+        raise HTTPException(status_code=400, detail="Selecione um paciente cadastrado.")
+
+    conv_nome = (body.convenio or (pac_cadastrado.convenio if pac_cadastrado else "")).strip() or "Particular"
+    pac_doc = (body.paciente_documento or (pac_cadastrado.cpf if pac_cadastrado else "")).strip() or None
+    codigo_atd = (body.codigo_atendimento or (pac_cadastrado.codigo_atendimento if pac_cadastrado else "")).strip()
+    if not codigo_atd:
+        codigo_atd = f"ATD-{datetime.now().strftime('%Y%m%d-%H%M%S')}"
+
     exames_limpos = [ex.strip() for ex in (body.exames or []) if ex and ex.strip()]
     if not exames_limpos:
         raise HTTPException(status_code=400, detail="Informe ao menos 1 exame realizado pelo paciente.")
@@ -219,14 +232,10 @@ def registrar_uso_paciente(
 
         lotes_validados.append((lote, qtd_dec, item.exame_especifico))
 
-    codigo_atd = (body.codigo_atendimento or "").strip()
-    if not codigo_atd:
-        codigo_atd = f"ATD-{datetime.now().strftime('%Y%m%d-%H%M%S')}"
-
     novo_atd = AtendimentoPaciente(
         codigo_atendimento=codigo_atd,
         paciente_nome=pac_nome,
-        paciente_documento=(body.paciente_documento or "").strip() or None,
+        paciente_documento=pac_doc,
         convenio=conv_nome,
         exames_json=json.dumps(exames_limpos, ensure_ascii=False),
         usuario_id=current_user.id if current_user else None,

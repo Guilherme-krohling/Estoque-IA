@@ -30,9 +30,9 @@ export default function DashboardLayout({
   if (!user) return null;
 
   return (
-    <div className="flex min-h-screen">
+    <div className="flex min-h-screen overflow-x-hidden">
       <Sidebar />
-      <main className="flex-1 ml-64 p-8 animate-fade-in">{children}</main>
+      <main className="flex-1 min-w-0 max-w-full ml-64 p-8 animate-fade-in overflow-x-hidden">{children}</main>
     </div>
   );
 }

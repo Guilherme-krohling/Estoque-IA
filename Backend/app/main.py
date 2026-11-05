@@ -32,6 +32,8 @@ from app.api.endpoints import (
     ia,
     pedidos_reposicao,
     rastreabilidade,
+    convenios,
+    pacientes,
 )
 
 # =====================================================================
@@ -111,6 +113,8 @@ app.include_router(relatorios.router, prefix="/api/relatorios", tags=["Relatóri
 app.include_router(ia.router, prefix="/api/ia", tags=["IA — Motor de Estoque"])
 app.include_router(pedidos_reposicao.router, prefix="/api/pedidos-reposicao", tags=["Pedidos de Reposição e NF"])
 app.include_router(rastreabilidade.router, prefix="/api/rastreabilidade", tags=["Rastreabilidade por Paciente"])
+app.include_router(convenios.router, prefix="/api/convenios", tags=["Convênios"])
+app.include_router(pacientes.router, prefix="/api/pacientes", tags=["Pacientes"])
 
 
 # =====================================================================

@@ -407,6 +407,7 @@ export const rastreabilidadeApi = {
     return fetchApi<any>(`/rastreabilidade/${q ? `?${q}` : ""}`);
   },
   registrarAtendimento: (data: {
+    paciente_id?: number;
     paciente_nome: string;
     paciente_documento?: string;
     convenio: string;
@@ -423,5 +424,34 @@ export const rastreabilidadeApi = {
       method: "POST",
       body: JSON.stringify(data),
     }),
+};
+
+// =====================================================================
+// CONVÊNIOS (CONFIGURAÇÕES GLOBAIS)
+// =====================================================================
+export const conveniosApi = {
+  listar: () => fetchApi<any[]>("/convenios/"),
+  criar: (data: { nome: string; plano: string; carencia: string }) =>
+    fetchApi<any>("/convenios/", { method: "POST", body: JSON.stringify(data) }),
+  atualizar: (id: number, data: { nome: string; plano: string; carencia: string }) =>
+    fetchApi<any>(`/convenios/${id}`, { method: "PUT", body: JSON.stringify(data) }),
+  deletar: (id: number) =>
+    fetchApi<any>(`/convenios/${id}`, { method: "DELETE" }),
+};
+
+// =====================================================================
+// PACIENTES (CONFIGURAÇÕES GLOBAIS — ORDEM ALFABÉTICA)
+// =====================================================================
+export const pacientesApi = {
+  listar: (busca?: string) => {
+    const qs = busca && busca.trim() ? `?busca=${encodeURIComponent(busca.trim())}` : "";
+    return fetchApi<any[]>(`/pacientes/${qs}`);
+  },
+  criar: (data: any) =>
+    fetchApi<any>("/pacientes/", { method: "POST", body: JSON.stringify(data) }),
+  atualizar: (id: number, data: any) =>
+    fetchApi<any>(`/pacientes/${id}`, { method: "PUT", body: JSON.stringify(data) }),
+  deletar: (id: number) =>
+    fetchApi<any>(`/pacientes/${id}`, { method: "DELETE" }),
 };
 

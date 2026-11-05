@@ -1,14 +1,17 @@
 "use client";
 
 import { useEffect, useState, useMemo } from "react";
-import { materiaisApi, lotesApi, categoriasApi, movimentacoesApi, locaisApi, rastreabilidadeApi } from "@/lib/api";
+import { materiaisApi, lotesApi, categoriasApi, movimentacoesApi, locaisApi, rastreabilidadeApi, pacientesApi, conveniosApi } from "@/lib/api";
 import { showToast } from "@/components/Toast";
+import SeletorPacienteConvenio, { PacienteSelecionado } from "@/components/SeletorPacienteConvenio";
 
 export default function EstoqueWorkspace() {
   const [materiais, setMateriais] = useState<any[]>([]);
   const [lotes, setLotes] = useState<any[]>([]);
   const [categorias, setCategorias] = useState<any[]>([]);
   const [locais, setLocais] = useState<any[]>([]);
+  const [pacientesCadastrados, setPacientesCadastrados] = useState<PacienteSelecionado[]>([]);
+  const [conveniosCadastrados, setConveniosCadastrados] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
 
   // Tabs do Painel Esquerdo
@@ -27,10 +30,11 @@ export default function EstoqueWorkspace() {
   const [loteUsoSelecionado, setLoteUsoSelecionado] = useState<any | null>(null);
   const [modoUso, setModoUso] = useState<"PACIENTE" | "INTERNO">("PACIENTE");
   const [salvandoUso, setSalvandoUso] = useState(false);
+  const [pacienteUsoObj, setPacienteUsoObj] = useState<PacienteSelecionado | null>(null);
   const [formUso, setFormUso] = useState({
     quantidade: "1",
     paciente_nome: "",
-    convenio: "Unimed",
+    convenio: "",
     exames_texto: "",
     motivo_interno: "Uso interno de bancada / calibração",
   });
@@ -39,8 +43,20 @@ export default function EstoqueWorkspace() {
 
   const load = async () => {
     try {
-      const [m, l, c, loc] = await Promise.all([materiaisApi.listar(), lotesApi.listar(), categoriasApi.listar(), locaisApi.listar()]);
-      setMateriais(m); setLotes(l); setCategorias(c); setLocais(loc);
+      const [m, l, c, loc, pacs, convs] = await Promise.all([
+        materiaisApi.listar(),
+        lotesApi.listar(),
+        categoriasApi.listar(),
+        locaisApi.listar(),
+        pacientesApi.listar(),
+        conveniosApi.listar(),
+      ]);
+      setMateriais(m);
+      setLotes(l);
+      setCategorias(c);
+      setLocais(loc);
+      setPacientesCadastrados(pacs);
+      setConveniosCadastrados(convs);
     } catch {
       showToast("Erro ao carregar workspace.", "error");
     } finally {
@@ -128,10 +144,11 @@ export default function EstoqueWorkspace() {
       if (loteObj) {
         setLoteUsoSelecionado(loteObj);
         setModoUso("PACIENTE");
+        setPacienteUsoObj(null);
         setFormUso({
           quantidade: "1",
           paciente_nome: "",
-          convenio: "Unimed",
+          convenio: "",
           exames_texto: "",
           motivo_interno: "Uso interno de bancada / calibração",
         });
@@ -179,8 +196,13 @@ export default function EstoqueWorkspace() {
           .split(",")
           .map((s) => s.trim())
           .filter(Boolean);
-        if (!formUso.paciente_nome.trim()) {
-          showToast("Informe o nome do paciente.", "error");
+        if (!pacienteUsoObj) {
+          showToast("Selecione um paciente cadastrado na lista.", "error");
+          setSalvandoUso(false);
+          return;
+        }
+        if (!formUso.convenio.trim()) {
+          showToast("Selecione um convênio cadastrado.", "error");
           setSalvandoUso(false);
           return;
         }
@@ -190,8 +212,11 @@ export default function EstoqueWorkspace() {
           return;
         }
         await rastreabilidadeApi.registrarAtendimento({
-          paciente_nome: formUso.paciente_nome.trim(),
-          convenio: formUso.convenio.trim() || "Particular",
+          paciente_id: pacienteUsoObj.id,
+          paciente_nome: pacienteUsoObj.nome_completo,
+          paciente_documento: pacienteUsoObj.cpf,
+          convenio: formUso.convenio.trim(),
+          codigo_atendimento: pacienteUsoObj.codigo_atendimento,
           exames: examesLista,
           itens_consumidos: [{ lote_id: loteUsoSelecionado.id, quantidade: qtd }],
         });
@@ -584,30 +609,23 @@ export default function EstoqueWorkspace() {
 
               {modoUso === "PACIENTE" ? (
                 <>
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                    <div>
-                      <label className="block text-xs text-slate-300 mb-1">Nome do Paciente *</label>
-                      <input
-                        type="text"
-                        required
-                        value={formUso.paciente_nome}
-                        onChange={(e) => setFormUso({ ...formUso, paciente_nome: e.target.value })}
-                        placeholder="Ex: Guilherme"
-                        className="w-full px-3 py-2 bg-slate-900 border border-slate-700 rounded-lg text-white text-sm"
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-xs text-slate-300 mb-1">Convênio *</label>
-                      <input
-                        type="text"
-                        required
-                        value={formUso.convenio}
-                        onChange={(e) => setFormUso({ ...formUso, convenio: e.target.value })}
-                        placeholder="Ex: Unimed, Particular..."
-                        className="w-full px-3 py-2 bg-slate-900 border border-slate-700 rounded-lg text-white text-sm"
-                      />
-                    </div>
-                  </div>
+                  <SeletorPacienteConvenio
+                    pacientes={pacientesCadastrados}
+                    convenios={conveniosCadastrados}
+                    pacienteSelecionado={pacienteUsoObj}
+                    convenioSelecionado={formUso.convenio}
+                    onSelectPaciente={(pac) => {
+                      setPacienteUsoObj(pac);
+                      setFormUso((prev) => ({
+                        ...prev,
+                        paciente_nome: pac ? pac.nome_completo : "",
+                        convenio: pac ? pac.convenio : prev.convenio,
+                      }));
+                    }}
+                    onChangeConvenio={(conv) =>
+                      setFormUso((prev) => ({ ...prev, convenio: conv }))
+                    }
+                  />
                   <div>
                     <label className="block text-xs text-slate-300 mb-1">
                       Exames Realizados pelo Paciente (separe por vírgula) *

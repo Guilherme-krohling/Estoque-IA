@@ -1,7 +1,9 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import PageHeader from "@/components/PageHeader";
+import PacientesTab from "@/components/tabs/PacientesTab";
+import ConveniosTab from "@/components/tabs/ConveniosTab";
 import CategoriasTab from "@/components/tabs/CategoriasTab";
 import FornecedoresTab from "@/components/tabs/FornecedoresTab";
 import DoencasTab from "@/components/tabs/DoencasTab";
@@ -11,7 +13,17 @@ import { useAuth } from "@/contexts/AuthContext";
 
 export default function ConfiguracoesPage() {
   const { user } = useAuth();
-  const [activeTab, setActiveTab] = useState("categorias");
+  const [activeTab, setActiveTab] = useState("pacientes");
+
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      const params = new URLSearchParams(window.location.search);
+      const tabParam = params.get("tab");
+      if (tabParam && ["pacientes", "convenios", "categorias", "fornecedores", "locais", "doencas", "equipe"].includes(tabParam)) {
+        setActiveTab(tabParam);
+      }
+    }
+  }, []);
 
   if (user?.perfil === "PESQUISADOR") {
     return (
@@ -24,6 +36,26 @@ export default function ConfiguracoesPage() {
   return (
     <PageHeader title="Configurações Globais" subtitle="Parâmetros base do laboratório">
       <div className="mb-6 flex gap-2 border-b border-slate-700/50 pb-px overflow-x-auto hide-scrollbar">
+        <button
+          onClick={() => setActiveTab("pacientes")}
+          className={`px-4 py-2 text-sm font-medium transition-colors border-b-2 whitespace-nowrap ${
+            activeTab === "pacientes"
+              ? "border-emerald-500 text-emerald-400"
+              : "border-transparent text-slate-400 hover:text-slate-200"
+          }`}
+        >
+          🧑‍⚕️ Pacientes
+        </button>
+        <button
+          onClick={() => setActiveTab("convenios")}
+          className={`px-4 py-2 text-sm font-medium transition-colors border-b-2 whitespace-nowrap ${
+            activeTab === "convenios"
+              ? "border-emerald-500 text-emerald-400"
+              : "border-transparent text-slate-400 hover:text-slate-200"
+          }`}
+        >
+          🏥 Convênios
+        </button>
         <button
           onClick={() => setActiveTab("categorias")}
           className={`px-4 py-2 text-sm font-medium transition-colors border-b-2 whitespace-nowrap ${
@@ -78,7 +110,9 @@ export default function ConfiguracoesPage() {
         )}
       </div>
 
-      <div className="glass p-6 rounded-2xl min-h-[50vh]">
+      <div className="glass p-6 rounded-2xl min-h-[50vh] w-full min-w-0 max-w-full overflow-hidden">
+        {activeTab === "pacientes" && <PacientesTab />}
+        {activeTab === "convenios" && <ConveniosTab />}
         {activeTab === "categorias" && <CategoriasTab />}
         {activeTab === "fornecedores" && <FornecedoresTab />}
         {activeTab === "locais" && <LocaisTab />}

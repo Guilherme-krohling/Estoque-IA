@@ -2,8 +2,9 @@
 
 import { useEffect, useState, useMemo } from "react";
 import PageHeader from "@/components/PageHeader";
-import { movimentacoesApi, rastreabilidadeApi, lotesApi, materiaisApi } from "@/lib/api";
+import { movimentacoesApi, rastreabilidadeApi, lotesApi, materiaisApi, pacientesApi, conveniosApi } from "@/lib/api";
 import { showToast } from "@/components/Toast";
+import SeletorPacienteConvenio, { PacienteSelecionado } from "@/components/SeletorPacienteConvenio";
 
 const TIPOS = ["", "ENTRADA", "USO", "DESCARTE", "AJUSTE", "TRANSFERENCIA"];
 const SUGESTOES_CONVENIOS = ["Unimed", "Bradesco Saúde", "SulAmérica", "Amil", "NotreDame Intermédica", "SUS", "Particular"];
@@ -51,10 +52,13 @@ export default function AuditoriaPage() {
   // Modal de Registro de Uso em Paciente
   const [modalPacienteOpen, setModalPacienteOpen] = useState(false);
   const [salvandoAtendimento, setSalvandoAtendimento] = useState(false);
+  const [pacientesCadastrados, setPacientesCadastrados] = useState<PacienteSelecionado[]>([]);
+  const [conveniosCadastrados, setConveniosCadastrados] = useState<any[]>([]);
+  const [pacienteSelecionadoObj, setPacienteSelecionadoObj] = useState<PacienteSelecionado | null>(null);
   const [formAtendimento, setFormAtendimento] = useState({
     paciente_nome: "",
     paciente_documento: "",
-    convenio: "Unimed",
+    convenio: "",
     codigo_atendimento: "",
     exames_texto: "",
     observacoes: "",
@@ -66,14 +70,18 @@ export default function AuditoriaPage() {
   const load = async () => {
     setLoading(true);
     try {
-      const [movs, rastreio, lotes, materiais] = await Promise.all([
+      const [movs, rastreio, lotes, materiais, pacs, convs] = await Promise.all([
         movimentacoesApi.listar(filtroTipo ? { tipo: filtroTipo } : undefined),
         rastreabilidadeApi.listar(),
         lotesApi.listar(),
         materiaisApi.listar(),
+        pacientesApi.listar(),
+        conveniosApi.listar(),
       ]);
       setMovimentacoes(movs);
       setRastreabilidadeData(rastreio);
+      setPacientesCadastrados(pacs);
+      setConveniosCadastrados(convs);
 
       const mapaMat: Record<number, any> = {};
       for (const m of materiais) {
@@ -160,8 +168,12 @@ export default function AuditoriaPage() {
 
   const handleRegistrarUsoPaciente = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!formAtendimento.paciente_nome.trim()) {
-      showToast("Informe o nome do paciente.", "error");
+    if (!pacienteSelecionadoObj) {
+      showToast("Selecione um paciente cadastrado na lista.", "error");
+      return;
+    }
+    if (!formAtendimento.convenio.trim()) {
+      showToast("Selecione um convênio cadastrado.", "error");
       return;
     }
     if (examesListaForm.length === 0) {
@@ -185,20 +197,22 @@ export default function AuditoriaPage() {
     setSalvandoAtendimento(true);
     try {
       await rastreabilidadeApi.registrarAtendimento({
-        paciente_nome: formAtendimento.paciente_nome.trim(),
-        paciente_documento: formAtendimento.paciente_documento.trim() || undefined,
-        convenio: formAtendimento.convenio.trim() || "Particular",
-        codigo_atendimento: formAtendimento.codigo_atendimento.trim() || undefined,
+        paciente_id: pacienteSelecionadoObj.id,
+        paciente_nome: pacienteSelecionadoObj.nome_completo,
+        paciente_documento: pacienteSelecionadoObj.cpf,
+        convenio: formAtendimento.convenio.trim(),
+        codigo_atendimento: pacienteSelecionadoObj.codigo_atendimento,
         exames: examesListaForm,
         observacoes: formAtendimento.observacoes.trim() || undefined,
         itens_consumidos: itensValidos,
       });
       showToast("Uso de material vinculado ao paciente, convênio e exames com sucesso!");
       setModalPacienteOpen(false);
+      setPacienteSelecionadoObj(null);
       setFormAtendimento({
         paciente_nome: "",
         paciente_documento: "",
-        convenio: "Unimed",
+        convenio: "",
         codigo_atendimento: "",
         exames_texto: "",
         observacoes: "",
@@ -703,60 +717,25 @@ export default function AuditoriaPage() {
             </div>
 
             <form onSubmit={handleRegistrarUsoPaciente} className="space-y-4">
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-xs text-slate-300 font-medium mb-1">Nome do Paciente *</label>
-                  <input
-                    type="text"
-                    required
-                    value={formAtendimento.paciente_nome}
-                    onChange={(e) => setFormAtendimento({ ...formAtendimento, paciente_nome: e.target.value })}
-                    placeholder="Ex: Guilherme Silva"
-                    className="w-full px-3 py-2 bg-slate-900 border border-slate-700 rounded-lg text-white text-sm focus:ring-2 focus:ring-cyan-500/50 focus:outline-none"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-xs text-slate-300 font-medium mb-1">Convênio *</label>
-                  <input
-                    type="text"
-                    required
-                    list="lista-convenios-sugeridos"
-                    value={formAtendimento.convenio}
-                    onChange={(e) => setFormAtendimento({ ...formAtendimento, convenio: e.target.value })}
-                    placeholder="Ex: Unimed, Bradesco Saúde, Particular..."
-                    className="w-full px-3 py-2 bg-slate-900 border border-slate-700 rounded-lg text-white text-sm focus:ring-2 focus:ring-cyan-500/50 focus:outline-none"
-                  />
-                  <datalist id="lista-convenios-sugeridos">
-                    {SUGESTOES_CONVENIOS.map((c) => (
-                      <option key={c} value={c} />
-                    ))}
-                  </datalist>
-                </div>
-              </div>
-
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-xs text-slate-400 mb-1">CPF / Prontuário (Opcional)</label>
-                  <input
-                    type="text"
-                    value={formAtendimento.paciente_documento}
-                    onChange={(e) => setFormAtendimento({ ...formAtendimento, paciente_documento: e.target.value })}
-                    placeholder="Ex: 123.456.789-00"
-                    className="w-full px-3 py-2 bg-slate-900 border border-slate-700 rounded-lg text-white text-sm"
-                  />
-                </div>
-                <div>
-                  <label className="block text-xs text-slate-400 mb-1">Código do Atendimento (Opcional)</label>
-                  <input
-                    type="text"
-                    value={formAtendimento.codigo_atendimento}
-                    onChange={(e) => setFormAtendimento({ ...formAtendimento, codigo_atendimento: e.target.value })}
-                    placeholder="Gerado automaticamente se vazio"
-                    className="w-full px-3 py-2 bg-slate-900 border border-slate-700 rounded-lg text-white text-sm"
-                  />
-                </div>
-              </div>
+              <SeletorPacienteConvenio
+                pacientes={pacientesCadastrados}
+                convenios={conveniosCadastrados}
+                pacienteSelecionado={pacienteSelecionadoObj}
+                convenioSelecionado={formAtendimento.convenio}
+                onSelectPaciente={(pac) => {
+                  setPacienteSelecionadoObj(pac);
+                  setFormAtendimento((prev) => ({
+                    ...prev,
+                    paciente_nome: pac ? pac.nome_completo : "",
+                    paciente_documento: pac ? pac.cpf : "",
+                    codigo_atendimento: pac ? pac.codigo_atendimento : "",
+                    convenio: pac ? pac.convenio : prev.convenio,
+                  }));
+                }}
+                onChangeConvenio={(conv) =>
+                  setFormAtendimento((prev) => ({ ...prev, convenio: conv }))
+                }
+              />
 
               {/* Lista de Exames Realizados pelo Paciente */}
               <div>

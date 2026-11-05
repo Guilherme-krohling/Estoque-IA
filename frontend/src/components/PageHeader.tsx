@@ -11,7 +11,7 @@ interface Props {
 
 export default function PageHeader({ children, title, subtitle, actions }: Props) {
   return (
-    <div>
+    <div className="w-full min-w-0 max-w-full">
       <div className="flex items-center justify-between mb-6">
         <div>
           <h1 className="text-2xl font-bold text-white">{title}</h1>
